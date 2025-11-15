@@ -7,7 +7,7 @@ import "@copilotkit/react-ui/styles.css";
 
 const App = () => {
   return (
-    <CopilotKit url="http://localhost:8000/copilotkit">
+    <CopilotKit url="/api/copilotkit">
       <Dashboard />
       <CopilotPopup />
     </CopilotKit>

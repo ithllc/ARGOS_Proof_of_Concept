@@ -8,7 +8,7 @@ export default function Dashboard() {
   const [messages, setMessages] = useState([]);
 
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8000/ws/dashboard');
+    const ws = new WebSocket('ws://localhost:8000/ws/status');
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);

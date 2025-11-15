@@ -1,0 +1,29 @@
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Git
+.git
+.gitignore
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE
+.idea/
+.vscode/
+
+# Environment
+.env
+
+# Test artifacts
+htmlcov/
+.coverage
+*.db
+*.sqlite3
+tests/
