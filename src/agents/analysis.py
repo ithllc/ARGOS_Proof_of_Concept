@@ -30,7 +30,7 @@ class AnalysisAgent:
 			aggregated["score"] = round(sum(scores) / len(scores), 2)
 
 		# Save analysis
-		analysis_key = f"analysis:{int(redis_client.client.time()[0])}"
+		analysis_key = f"analysis:{int(self.redis.client.time()[0])}"
 		self.redis.set_with_ttl(analysis_key, json.dumps(aggregated), 3600)
 		self.redis.publish_message("agent:activity", json.dumps({"agent": "analysis", "status": "completed", "key": analysis_key}))
 		return aggregated

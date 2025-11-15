@@ -1,9 +1,14 @@
+from unittest.mock import MagicMock
+
+
 class MockRedisClient:
     """A mock Redis client for testing purposes."""
     def __init__(self):
         self.queues = {}
         self.hashes = {}
         self.published_messages = {}
+        self.client = MagicMock()
+        self.client.time.return_value = (1731642000, 0)  # Mock timestamp
 
     def push_task(self, queue_name, task):
         if queue_name not in self.queues:
@@ -31,3 +36,13 @@ class MockRedisClient:
 
     def get_all_hash_fields(self, hash_name):
         return self.hashes.get(hash_name, {})
+
+    def set_with_ttl(self, key, value, ttl):
+        # The mock doesn't need to handle TTL, just store the value.
+        self.hashes[key] = value
+
+    def get(self, key):
+        return self.hashes.get(key)
+
+    def get_value(self, key):
+        return self.get(key)

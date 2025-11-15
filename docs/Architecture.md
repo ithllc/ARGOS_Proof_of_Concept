@@ -89,9 +89,40 @@ The system is composed of specialized agents that perform distinct functions.
 -   **Trigger**: Listens for and pulls tasks from the `tasks:research` Redis queue.
 -   **Function**: Executes web searches and extracts content from research papers.
 -   **Tooling**:
-    -   **Tavily**: To perform web searches and find relevant papers. It can be run with a mock client for offline development.
-    -   **Paper Parser** (`paper_parser.py`): To extract text from URLs, supporting both HTML pages and PDF documents (`PyPDF2`).
+    -   **Tavily (via MCP)**: The agent communicates with a `TavilyMCP` server, which is a Node.js application that wraps the `tavily-python` library. A dedicated Python client (`src/mcp_client.py`) manages this server as a subprocess and communicates with it over `stdio`, making the interaction seamless and language-agnostic. This adheres to the Model Context Protocol (MCP) for standardized tool interaction.
+    -   **Paper Parser** (`paper_parser.py`): To extract text from URLs, supporting both HTML pages and PDF documents.
 -   **Output**: Stores the extracted text and metadata in Redis Hashes (`paper:<id>`) and updates the task's state to `COMPLETED`.
+
+#### c. Planning Agent (`planning.py`)
+-   **Trigger**: Can be invoked after the `ResearchAgent` has processed one or more papers.
+-   **Function**: Synthesizes information from multiple documents to find conceptual overlaps and potential applications.
+-   **Tooling**: Uses a custom keyword analysis algorithm. It identifies words that appear in multiple documents (excluding common English "stop words") and ranks them by overall frequency to find the most relevant overlapping terms. This approach replaced an earlier implementation that used TF-IDF, as it proved more robust for the short and varied texts encountered.
+-   **Output**: Stores a synthesis report (including concept overlap, a feasibility score, and example applications) in Redis.
+
+#### d. Analysis Agent (`analysis.py`)
+-   **Trigger**: Can be invoked after the `PlanningAgent` has created a synthesis.
+-   **Function**: Assesses the overall feasibility and potential of the synthesized concepts.
+-   **Tooling**: Uses **DSPy** with a local Ollama model to generate a structured analysis (strengths, weaknesses, opportunities) based on the synthesis report.
+-   **Output**: Produces a final analysis report, stored in Redis.
+
+## 4. Frontend (`frontend/`)
+
+-   **Framework**: React, intended to be used with **CopilotKit**.
+-   **Purpose**: Provides a user-friendly interface for interacting with the agent system.
+-   **Key Features**:
+    -   A chat interface for submitting queries.
+    -   A real-time dashboard to monitor the status and activity of each agent by subscribing to the Redis `agent:activity` channel via the WebSocket.
+    -   Components to visualize the results of the paper analysis and synthesis.
+
+## 5. Local Development and Testing
+
+-   **Environment Management**: A central `config.py` module loads environment variables from a `.env` file, making configuration straightforward.
+-   **Virtual Environment**: All Python dependencies are managed via a `.venv` virtual environment and a `pyproject.toml` file.
+-   **Unit Testing**: A comprehensive unit test suite is maintained in the `tests/` directory, using Python's `unittest` framework.
+    -   **Mocking**: All external dependencies (Redis, MCP clients, LLMs) are mocked using `unittest.mock` and a custom `MockRedisClient`, allowing for fast, isolated, and reliable local testing.
+    -   **Test Runner**: A `run_tests.sh` script is provided to execute the entire test suite, ensuring the correct Python path and environment are used.
+    -   **Test Plans**: Detailed test plans and results are documented in `tests/docs/`.
+````
 
 #### c. Planning Agent (`planning.py`)
 -   **Trigger**: Can be invoked after the `ResearchAgent` has processed one or more papers.
