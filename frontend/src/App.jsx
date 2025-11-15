@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import Dashboard from './Dashboard';
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotPopup } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
@@ -7,10 +8,7 @@ import "@copilotkit/react-ui/styles.css";
 const App = () => {
   return (
     <CopilotKit url="http://localhost:8000/copilotkit">
-      <div>
-        <h1>Mini-ARGOS POC</h1>
-        <p>Welcome to the Proof of Concept for Mini-ARGOS.</p>
-      </div>
+      <Dashboard />
       <CopilotPopup />
     </CopilotKit>
   );

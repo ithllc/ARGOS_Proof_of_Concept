@@ -1,5 +1,11 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from typing import List
+from fastapi import Body
+from agents.coordinator import CoordinatorAgent
+from redis_client import redis_client
+from agents.research import ResearchAgent
+from agents.planning import PlanningAgent
+from agents.analysis import AnalysisAgent
 
 app = FastAPI()
 
@@ -30,6 +36,26 @@ async def read_root():
 @app.get("/status")
 async def get_status():
     return {"status": "ok"}
+
+
+@app.post("/api/decompose")
+async def api_decompose(payload: dict = Body(...)):
+    query = payload.get("query")
+    session_id = payload.get("session_id")
+    agent = CoordinatorAgent()
+    task_ids = agent.decompose_and_dispatch(query, session_id=session_id)
+    return {"tasks": task_ids}
+
+
+@app.get("/api/papers")
+async def get_papers():
+    # naive: list last N paper:* entries in redis
+    keys = redis_client.client.keys("paper:*")[:20]
+    papers = []
+    for k in keys:
+        p = redis_client.get_all_hash_fields(k)
+        papers.append({"title": p.get("title", ""), "url": p.get("url", ""), "id": k})
+    return {"papers": papers}
 
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: int):
