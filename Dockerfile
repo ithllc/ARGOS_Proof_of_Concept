@@ -1,55 +1,25 @@
-# STAGE 1: Build the React Frontend
-# ------------------------------------
-FROM node:18-alpine AS builder
+# Use an official Python runtime as a parent image
+FROM python:3.11-slim-buster
 
-# Set the working directory for the frontend
-WORKDIR /app/frontend
-
-# Copy package.json and package-lock.json to leverage Docker cache
-COPY frontend/package*.json ./
-
-# Install frontend dependencies
-RUN npm install
-
-# Copy the rest of the frontend source code
-COPY frontend/ ./
-
-# Build the frontend application
-RUN npm run build
-
-
-# STAGE 2: Build the Python Backend and Serve the Frontend
-# ---------------------------------------------------------
-FROM python:3.10-slim
-
-# Set the working directory for the backend
+# Set the working directory in the container
 WORKDIR /app
 
-# Install system dependencies required for libraries like pdfplumber
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libpoppler-cpp-dev \
-    pkg-config \
-    poppler-utils \
-    && rm -rf /var/lib/apt/lists/*
+# Copy the requirements file into the container at /app
+COPY requirements.txt .
 
-# Install Poetry
-RUN pip install poetry
+# Install any needed packages specified in requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy dependency files
-COPY poetry.lock pyproject.toml /app/
+# Copy the rest of the application code into the container at /app
+COPY . .
 
-# Install project dependencies (excluding dev dependencies)
-RUN poetry install --no-root --no-dev
+# Set the PYTHONPATH to include the src directory
+ENV PYTHONPATH=/app/src
 
-# Copy the application source code
-COPY src/ /app/src/
-
-# Copy the built frontend from the 'builder' stage
-COPY --from=builder /app/frontend/build /app/frontend/build
-
-# Expose the port the app runs on
+# Make port 8000 available to the world outside this container
 EXPOSE 8000
 
-# Command to run the application
-CMD ["poetry", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the FastAPI application
+# The command to run the FastAPI app is 'uvicorn src.main:app --host 0.0.0.0 --port 8000'
+# The 'src' directory is where main.py is located.
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,36 @@
+steps:
+# Build the container image
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-repo/argos-pos:latest', '.']
+
+# Push the container image to Artifact Registry
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-repo/argos-pos:latest']
+
+# Deploy container image to Cloud Run
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+  - 'run'
+  - 'deploy'
+  - 'argos-pos-service' # You can change this service name
+  - '--image'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-repo/argos-pos:latest'
+  - '--region'
+  - 'us-central1'
+  - '--platform'
+  - 'managed'
+  - '--allow-unauthenticated'
+  - '--port'
+  - '8000'
+  # The following environment variables are needed by the application.
+  # You should set these to your actual values, preferably using Secret Manager.
+  - '--set-env-vars'
+  - 'GOOGLE_API_KEY=your-google-api-key'
+  - '--set-env-vars'
+  - 'REDIS_HOST=your-redis-host'
+  - '--set-env-vars'
+  - 'REDIS_PORT=your-redis-port'
+
+images:
+- 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-repo/argos-pos:latest'
