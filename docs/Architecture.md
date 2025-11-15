@@ -11,9 +11,15 @@ The architecture emphasizes modularity, real-time interaction, and state persist
 
 ## 2. Architectural Diagram
 
-The system follows a distributed, event-driven architecture where agents communicate and coordinate through a central message bus (Redis).
+The system follows a distributed, event-driven architecture where agents communicate and coordinate through a central message bus (Redis). A dedicated configuration module ensures that environment variables are loaded correctly at startup.
 
 ```
++-------------------+      +-----------------+      +---------------------+
+|   .env File       |----->|  Config Loader  |----->|  Python Scripts     |
+| (API Keys, etc.)  |      |  (config.py)    |      | (main.py, agents/*) |
++-------------------+      +-----------------+      +---------------------+
+                                                            |
+                                                            v
 +-------------------+      +-----------------+      +---------------------+
 | User Interface    |----->| FastAPI Gateway |----->|  Coordinator Agent  |
 | (React/CopilotKit)|      | (main.py)       |      |  (coordinator.py)   |
@@ -46,14 +52,22 @@ The system follows a distributed, event-driven architecture where agents communi
 
 ## 3. Core Components
 
-### 3.1. FastAPI Gateway (`src/main.py`)
+### 3.1. Configuration (`src/config.py`)
+-   **Purpose**: To centralize and manage environment variables.
+-   **Responsibilities**:
+    -   Uses the `python-dotenv` library to automatically find and load the `.env` file from the project root (`ARGOS_POS/.env`).
+    -   Makes environment variables (like API keys and Redis connection details) available to the entire application.
+    -   Logs a warning if the `.env` file is not found, preventing silent failures.
+    -   This module is imported at the top of all key scripts to ensure variables are loaded before they are needed.
+
+### 3.2. FastAPI Gateway (`src/main.py`)
 -   **Purpose**: Serves as the primary entry point for all incoming requests.
 -   **Responsibilities**:
     -   Exposes RESTful API endpoints (e.g., `/api/decompose`) to initiate agent workflows.
     -   Manages WebSocket connections for real-time communication with the frontend.
     -   Delegates initial user queries to the `CoordinatorAgent`.
 
-### 3.2. Redis (`src/redis_client.py`)
+### 3.3. Redis (`src/redis_client.py`)
 -   **Purpose**: Acts as the central nervous system for the entire application. It is used for messaging, state management, and caching.
 -   **Data Structures Used**:
     -   **Lists**: For creating FIFO (First-In, First-Out) task queues (e.g., `tasks:research`).
@@ -61,7 +75,7 @@ The system follows a distributed, event-driven architecture where agents communi
     -   **Pub/Sub**: For broadcasting real-time notifications about agent activity (`agent:activity`), allowing the frontend and other components to listen for events.
     -   **Strings with TTL**: For caching synthesis and analysis results.
 
-### 3.3. Agents (`src/agents/`)
+### 3.4. Agents (`src/agents/`)
 
 The system is composed of specialized agents that perform distinct functions.
 
@@ -101,6 +115,7 @@ The system is composed of specialized agents that perform distinct functions.
 
 ## 5. Local Development and Testing
 
+-   **Environment Management**: A central `config.py` module loads environment variables from a `.env` file, making configuration straightforward.
 -   **Docker Compose**: A `docker-compose.yml` file is provided to simplify local setup by managing the Redis container and the application environment.
 -   **Mocking**: The system is designed for offline development.
     -   The `TavilyClient` can be replaced by a `MockTavilyClient` by setting `TAVILY_API_KEY=mock` in the `.env` file.

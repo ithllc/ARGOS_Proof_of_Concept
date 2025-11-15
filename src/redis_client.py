@@ -1,8 +1,8 @@
 import os
 import redis
-from dotenv import load_dotenv
 
-load_dotenv()
+# Load environment variables before other imports
+import config
 
 class RedisClient:
     def __init__(self):

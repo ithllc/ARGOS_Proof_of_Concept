@@ -2,32 +2,31 @@ import json
 import os
 import time
 from typing import Optional
+import asyncio
 
-from tavily import TavilyClient
-from mocks.tavily_mock import MockTavilyClient
+# Load environment variables before other imports
+import config
+
+from mcp_client import get_tavily_mcp_client
 from redis_client import redis_client
 from paper_parser import extract_text_from_url
 
 
 class ResearchAgent:
-	def __init__(self, redis_client=redis_client, tavily_api_key=None):
+	def __init__(self, redis_client=redis_client):
 		self.redis = redis_client
-		self.tavily_api_key = tavily_api_key or os.getenv("TAVILY_API_KEY")
-		if self.tavily_api_key and self.tavily_api_key != "mock":
-			self.tavily = TavilyClient(api_key=self.tavily_api_key)
-		else:
-			# If TAVILY_API_KEY is not set or is 'mock', use a local stub for development
-			self.tavily = MockTavilyClient()
+		# The Tavily API key is now managed by the MCP server,
+		# so we don't need it here directly.
+		# The client will connect to the local MCP server.
 
-	def listen_and_process(self, queue_name: str = "tasks:research"):
-		"""A synchronous loop that pops tasks from Redis and processes them.
-
-		For the POC, this continues until the queue is empty. In production this would be a long-running worker.
-		"""
+	async def listen_and_process(self, queue_name: str = "tasks:research"):
+		"""An asynchronous loop that pops tasks from Redis and processes them."""
 		while True:
 			raw = self.redis.pop_task(queue_name)
 			if not raw:
-				break
+				# In a real async worker, we might wait here instead of breaking.
+				await asyncio.sleep(1) # prevent busy-looping
+				continue # check again
 			try:
 				task = json.loads(raw)
 			except Exception:
@@ -35,19 +34,15 @@ class ResearchAgent:
 			ttype = task.get("type")
 			payload = task.get("payload", {})
 			if ttype == "search_and_parse":
-				self._execute_search_and_parse(payload)
+				await self._execute_search_and_parse(payload)
 
-	def _execute_search_and_parse(self, payload: dict):
+	async def _execute_search_and_parse(self, payload: dict):
 		query = payload.get("query")
 		session_id = payload.get("session_id")
-		if not self.tavily:
-			# publish a warning
-			self.redis.publish_message("agent:activity", json.dumps({"agent": "research", "status": "no_tavily_key", "query": query}))
-			return
 
-		# 1. Run Tavily search
 		try:
-			result = self.tavily.search(query)
+			async with get_tavily_mcp_client() as tavily_mcp:
+				result = await tavily_mcp.search(query)
 		except Exception as e:
 			self.redis.publish_message("agent:activity", json.dumps({"agent": "research", "status": "search_failed", "meta": str(e)}))
 			return
@@ -55,8 +50,8 @@ class ResearchAgent:
 		# 2. Extract candidate PDFs and metadata
 		found = []
 		for hit in result.get("results", [])[:5]:
-			url = hit.get("url") or hit.get("link")
-			title = hit.get("title") or hit.get("heading")
+			url = hit.get("url")
+			title = hit.get("title")
 			if not url:
 				continue
 			text = extract_text_from_url(url)
@@ -75,4 +70,5 @@ class ResearchAgent:
 			self.redis.publish_message("agent:activity", json.dumps({"agent": "research", "status": "completed", "found": found}))
 		else:
 			self.redis.publish_message("agent:activity", json.dumps({"agent": "research", "status": "no_pdfs_found", "query": query}))
+
 

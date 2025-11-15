@@ -3,6 +3,9 @@ import os
 import uuid
 from typing import List
 
+# Load environment variables before other imports
+import config
+
 import dspy
 from redis_client import redis_client
 
@@ -35,7 +38,8 @@ class CoordinatorAgent:
         api_key = os.getenv("GOOGLE_API_KEY")
         if api_key:
             try:
-                llm = dspy.Google(model="gemini-1.5-flash-latest", api_key=api_key)
+                # Use the generic dspy.LM loader as specified in the guide
+                llm = dspy.LM("gemini/gemini-1.5-flash-latest", api_key=api_key)
                 dspy.settings.configure(lm=llm)
                 self.dspy_enabled = True
             except Exception as e:
@@ -106,54 +110,54 @@ class CoordinatorAgent:
     def create_adk_agent(self):
         """Create a simple ADK LlmAgent instance that can be used for decomposition in production.
 
-		Note: this function returns a configured agent object but DOES NOT run it. To run, use `Runner` from
-		`google.adk.runners` and the appropriate `SessionService` (InMemory or VertexAI) as required.
-		"""
-		try:
-			from google.adk.agents import LlmAgent
+        Note: this function returns a configured agent object but DOES NOT run it. To run, use `Runner` from
+        `google.adk.runners` and the appropriate `SessionService` (InMemory or VertexAI) as required.
+        """
+        try:
+            from google.adk.agents import LlmAgent
 
-			agent = LlmAgent(
-				name="coordinator",
-				model="gemini-2.5-flash",
-				instruction=(
-					"You are the coordinator agent. Break a high-level research request into a short list of "
-					"search tasks (one line each). Return a JSON list of tasks. Avoid unnecessary text."
-				),
-			)
-			return agent
-		except Exception:
-			return None
+            agent = LlmAgent(
+                name="coordinator",
+                model="gemini-2.5-flash",
+                instruction=(
+                    "You are the coordinator agent. Break a high-level research request into a short list of "
+                    "search tasks (one line each). Return a JSON list of tasks. Avoid unnecessary text."
+                ),
+            )
+            return agent
+        except Exception:
+            return None
 
-	async def run_adk_decomposition(self, query: str, user_id: str = "local_user", session_id: str = "local_session") -> list[str]:
-		"""Run the ADK LlmAgent decomposition using an InMemorySessionService + Runner.
+    async def run_adk_decomposition(self, query: str, user_id: str = "local_user", session_id: str = "local_session") -> list[str]:
+        """Run the ADK LlmAgent decomposition using an InMemorySessionService + Runner.
 
-		This helper demonstrates how to execute an ADK LlmAgent for decomposition.
-		It returns a list of task strings parsed from the LLM output.
-		"""
-		try:
-			from google.adk.runners import Runner
-			from google.adk.sessions import InMemorySessionService
-			from google.genai import types as genai_types
+        This helper demonstrates how to execute an ADK LlmAgent for decomposition.
+        It returns a list of task strings parsed from the LLM output.
+        """
+        try:
+            from google.adk.runners import Runner
+            from google.adk.sessions import InMemorySessionService
+            from google.genai import types as genai_types
 
-			adk_agent = self.create_adk_agent()
-			if adk_agent is None:
-				return []
+            adk_agent = self.create_adk_agent()
+            if adk_agent is None:
+                return []
 
-			session_service = InMemorySessionService()
-			await session_service.create_session(app_name="mini_argos", user_id=user_id, session_id=session_id)
-			runner = Runner(agent=adk_agent, app_name="mini_argos", session_service=session_service)
+            session_service = InMemorySessionService()
+            await session_service.create_session(app_name="mini_argos", user_id=user_id, session_id=session_id)
+            runner = Runner(agent=adk_agent, app_name="mini_argos", session_service=session_service)
 
-			tasks = []
-			async for event in runner.run_async(user_id=user_id, session_id=session_id, new_message=genai_types.Content(parts=[genai_types.Part.from_text(query)])):
-				if event.is_final_response():
-					text = event.content.parts[0].text
-					# attempt to parse JSON list or fallback to splitting lines
-					import json
-					try:
-						tasks = json.loads(text)
-					except Exception:
-						tasks = [l.strip() for l in text.splitlines() if l.strip()]
-			return tasks
-		except Exception:
-			return []
+            tasks = []
+            async for event in runner.run_async(user_id=user_id, session_id=session_id, new_message=genai_types.Content(parts=[genai_types.Part.from_text(query)])):
+                if event.is_final_response():
+                    text = event.content.parts[0].text
+                    # attempt to parse JSON list or fallback to splitting lines
+                    import json
+                    try:
+                        tasks = json.loads(text)
+                    except Exception:
+                        tasks = [l.strip() for l in text.splitlines() if l.strip()]
+            return tasks
+        except Exception:
+            return []
 

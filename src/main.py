@@ -1,6 +1,10 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from typing import List
 from fastapi import Body
+
+# Load environment variables before other imports
+import config
+
 from agents.coordinator import CoordinatorAgent
 from redis_client import redis_client
 from agents.research import ResearchAgent
