@@ -1,5 +1,11 @@
 # Mini-ARGOS POC - ADK Version
 
+[![Commercial license available](https://img.shields.io/badge/Commercial%20License-Available-blue.svg)](mailto:frankivey@bigdataandopensource.onmicrosoft.com)
+
+Permitted uses: Educational and research purposes only. This repository contains a proof-of-concept implementation intended for learning, experimentation, and demonstration. You may use, study, and modify the code for non-commercial educational or research activities under the terms of the project's AGPL license. Redistribution and network use of modified versions are subject to the AGPL requirements.
+
+Commercial licensing available: For commercial licensing, partnership, or proprietary use, please contact Frank Ivey at frankivey@bigdataandopensource.onmicrosoft.com. Commercial licenses can be provided to allow closed-source or commercial deployment outside the AGPL terms.
+
 The Mini-ARGOS Proof-of-Concept is a sophisticated, multi-agent system designed to automate and accelerate the research and analysis process. It emulates a team of specialized AI agents that collaborate to break down complex user queries, find and analyze relevant research papers, and synthesize novel concepts and applications from the source material.
 
 This system can be used by researchers, analysts, and strategists to rapidly discover synergies between different fields of study, assess the feasibility of combining new technologies, and generate innovative ideas. By leveraging voice commands and real-time updates, it acts as an interactive partner in the exploration and ideation process, significantly reducing the manual effort required to conduct in-depth literature reviews.

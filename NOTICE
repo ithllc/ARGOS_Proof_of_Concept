@@ -1,0 +1,36 @@
+Mini-ARGOS Proof-of-Concept
+===========================
+
+This NOTICE file provides attribution, licensing, and contact information for the Mini-ARGOS Proof-of-Concept project.
+
+Project: Mini-ARGOS POC - ADK Version
+Repository: https://github.com/ithllc/ARGOS_Proof_of_Concept
+License: GNU Affero General Public License v3 (AGPL-3.0)
+
+Attribution and Third-Party Components
+-------------------------------------
+This project includes or depends on third-party open-source software. The following are notable components and their licenses; this list is illustrative and not exhaustive — please consult `pyproject.toml`, `requirements.txt`, and relevant upstream documentation for full details.
+
+- FastAPI — MIT
+- Uvicorn — BSD
+- redis-py — MIT
+- scikit-learn — BSD
+- CopilotKit (third-party UI) — check CopilotKit docs for license details
+
+License and Permitted Uses
+--------------------------
+This project is distributed under the AGPL-3.0 license. Under AGPL:
+
+- You may use, modify, and redistribute the code, but any distribution or network use of modified versions must make source code available under the same license.
+- If you operate a modified version as a network service, you must provide source code to users of that service.
+
+Commercial Licensing
+--------------------
+Commercial licenses are available to permit proprietary or closed-source use of this codebase. For inquiries about commercial licensing, please contact:
+
+Frank Ivey
+frankivey@bigdataandopensource.onmicrosoft.com
+
+Contact and Attribution Requests
+--------------------------------
+If you believe this NOTICE file is missing required attribution for a dependency or contains incorrect license information, please open an issue or contact the maintainers at the address above.
