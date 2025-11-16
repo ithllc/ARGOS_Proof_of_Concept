@@ -11,43 +11,24 @@ The architecture emphasizes modularity, real-time interaction, and state persist
 
 ## 2. Architectural Diagram
 
-The system follows a distributed, event-driven architecture where agents communicate and coordinate through a central message bus (Redis). A dedicated configuration module ensures that environment variables are loaded correctly at startup.
+The system has been refactored to use the Google Agent Development Kit (ADK) as its core backend framework. The ADK handles agent loading and serves a development UI.
 
 ```
-+-------------------+      +-----------------+      +---------------------+
-|   .env File       |----->|  Config Loader  |----->|  Python Scripts     |
-| (API Keys, etc.)  |      |  (config.py)    |      | (main.py, agents/*) |
-+-------------------+      +-----------------+      +---------------------+
-                                                            |
-                                                            v
-+-------------------+      +-----------------+      +---------------------+
-| User Interface    |----->| FastAPI Gateway |----->|  Coordinator Agent  |
-| (React/CopilotKit)|      | (main.py)       |      |  (coordinator.py)   |
-+-------------------+      +-------+---------+      +----------+----------+
-      ^                            |                           | (DSPy for Decomposition)
-      | (WebSocket for UI updates) |                           |
-      |                            |                           v
-+-----+----------------------------+---------------------------+-----+
-|                             Redis Message Bus                     |
-|                                                                   |
-|  - Task Queues (LISTS: `tasks:research`)                          |
-|  - Task State (HASHES: `task:<id>`)                               |
-|  - Results Cache (HASHES: `paper:<id>`, `synthesis:<id>`)         |
-|  - Notifications (PUBSUB: `agent:activity`)                       |
-+-------------------------------------------------------------------+
-      |                           |                           |
-      v                           v                           v
-+----------+----------+ +----------+----------+ +----------+----------+
-|  Research Agent   | |   Planning Agent  | |  Analysis Agent   |
-|  (research.py)    | |   (planning.py)   | |  (analysis.py)    |
-+-------------------+ +-------------------+ +-------------------+
-      | (Tavily for Search)
-      | (PyPDF2 for Parsing)
-      v
-+-------------------+
-| External Sources  |
-| (arXiv, Web Pages)|
-+-------------------+
++----------------------+      +---------------------+      +-------------------------+
+|   Frontend UI        |----->|  FastAPI Gateway    |----->| ADK Live Coordinator    |
+| (React/VoiceInterface)|      | (main.py)           |      | (coordinator.py)        |
+| - Mic Input          |      | - /ws/live WebSocket|      | - Handles STT/TTS       |
+| - Audio Playback     |      +---------------------+      | - Invokes Tools         |
++----------------------+                 ^                   +------------+------------+
+        ^                                |                                |
+        | (Audio Stream)                 | (Text Stream)                  | (Tool Calls)
+        v                                v                                v
++----------------------+      +---------------------+      +-------------------------+
+| Google Cloud STT/TTS |<---->|  Voice Handler      |<---->|   Multi-Modal Tools     |
+| - Speech-to-Text     |      | (voice_handler.py)  |      | (multi_modal_tools.py)  |
+| - Text-to-Speech     |      +---------------------+      | - Imagen 3 (Image Gen)  |
++----------------------+                                   | - Veo (Video Gen)       |
+                                                           +-------------------------+
 ```
 
 ## 3. Core Components
@@ -61,11 +42,13 @@ The system follows a distributed, event-driven architecture where agents communi
     -   This module is imported at the top of all key scripts to ensure variables are loaded before they are needed.
 
 ### 3.2. FastAPI Gateway (`src/main.py`)
--   **Purpose**: Serves as the primary entry point for all incoming requests.
+-   **Purpose**: Serves as the primary entry point for the application.
 -   **Responsibilities**:
-    -   Exposes RESTful API endpoints (e.g., `/api/decompose`) to initiate agent workflows.
-    -   Manages WebSocket connections for real-time communication with the frontend.
-    -   Delegates initial user queries to the `CoordinatorAgent`.
+    -   Uses the `get_fast_api_app` function from the Google Agent Development Kit (ADK).
+    -   This function automatically discovers and loads all ADK-compatible agents from the `src/agents/` directory.
+    -   It serves the ADK's built-in web UI for development and testing, which can be used to interact with the loaded agents.
+    -   Manages the underlying API endpoints required for the ADK framework to operate.
+    -   Includes a dedicated WebSocket endpoint (`/ws/live`) for real-time voice interaction with the ADK Live protocol.
 
 ### 3.3. Redis (`src/redis_client.py`)
 -   **Purpose**: Acts as the central nervous system for the entire application. It is used for messaging, state management, and caching.
@@ -75,15 +58,32 @@ The system follows a distributed, event-driven architecture where agents communi
     -   **Pub/Sub**: For broadcasting real-time notifications about agent activity (`agent:activity`), allowing the frontend and other components to listen for events.
     -   **Strings with TTL**: For caching synthesis and analysis results.
 
-### 3.4. Agents (`src/agents/`)
+### 3.4. Voice Handler (`src/voice_handler.py`)
+-   **Purpose**: Manages real-time audio streaming and interaction with Google Cloud Speech-to-Text (STT) and Text-to-Speech (TTS) APIs, and facilitates communication with the `CoordinatorAgent` via Redis.
+-   **Responsibilities**:
+    -   Receives audio chunks from the frontend via the `/ws/live` WebSocket.
+    -   Streams audio to Google Cloud STT for transcription.
+    -   Publishes transcribed text to a dedicated Redis queue (`tasks:coordinator_voice_input`) for the `CoordinatorAgent`.
+    -   Subscribes to a Redis Pub/Sub channel (`session:<id>:response`) to receive text and multi-modal responses from the `CoordinatorAgent`.
+    -   Streams text from the `CoordinatorAgent` (via Redis) to Google Cloud TTS for audio synthesis.
+    -   Sends synthesized audio and multi-modal content URLs back to the frontend via the WebSocket.
+
+### 3.5. Multi-Modal Tools (`src/multi_modal_tools.py`)
+-   **Purpose**: Provides `FunctionTool`s for generating images and videos using Google Cloud AI Platform models.
+-   **Responsibilities**:
+    -   `generate_architecture_image`: Takes a textual description and calls Imagen 3 to generate an image.
+    -   `generate_example_video`: Takes a textual description and calls Veo to generate a video.
+    -   Returns URLs of the generated media.
+
+### 3.6. Agents (`src/agents/`)
 
 The system is composed of specialized agents that perform distinct functions.
 
 #### a. Coordinator Agent (`coordinator.py`)
--   **Trigger**: Receives a high-level query from the user via the FastAPI gateway.
--   **Function**: Its primary role is **task decomposition**.
--   **Tooling**: It uses **DSPy** with a Google Gemini model to intelligently break down a complex query into a series of simple, actionable search tasks. If DSPy is unavailable (e.g., no API key), it falls back to a heuristic-based method.
--   **Output**: Pushes the decomposed tasks into the `tasks:research` queue in Redis.
+-   **Trigger**: Receives a high-level query from the user via the FastAPI gateway, or processes voice input tasks pulled from the `tasks:coordinator_voice_input` Redis queue (pushed by the `VoiceHandler`).
+-   **Function**: Its primary role is **task decomposition** and orchestrating responses, including multi-modal outputs. It uses a dedicated `process_voice_input` tool to handle voice-originated requests.
+-   **Tooling**: It uses **DSPy** with a Google Gemini model to intelligently break down a complex query into a series of simple, actionable search tasks. It also leverages `FunctionTool`s for multi-modal generation (Imagen 3 for images, Veo for videos). If DSPy is unavailable (e.g., no API key), it falls back to a heuristic-based method for task decomposition.
+-   **Output**: Pushes the decomposed tasks into the `tasks:research` queue in Redis, or directly invokes multi-modal tools and publishes their results (text and/or media URLs) back to the `VoiceHandler` via a Redis Pub/Sub channel (`session:<id>:response`).
 
 #### b. Research Agent (`research.py`)
 -   **Trigger**: Listens for and pulls tasks from the `tasks:research` Redis queue.
@@ -105,7 +105,7 @@ The system is composed of specialized agents that perform distinct functions.
 -   **Tooling**: Uses **DSPy** with a local Ollama model to generate a structured analysis (strengths, weaknesses, opportunities) based on the synthesis report.
 -   **Output**: Produces a final analysis report, stored in Redis.
 
-## 4. Frontend (`frontend/`)
+## 5. Frontend (`frontend/`)
 
 -   **Framework**: React, intended to be used with **CopilotKit**.
 -   **Purpose**: Provides a user-friendly interface for interacting with the agent system.
@@ -113,8 +113,9 @@ The system is composed of specialized agents that perform distinct functions.
     -   A chat interface for submitting queries.
     -   A real-time dashboard to monitor the status and activity of each agent by subscribing to the Redis `agent:activity` channel via the WebSocket.
     -   Components to visualize the results of the paper analysis and synthesis.
+    -   **Voice Interface (`VoiceInterface.tsx`)**: A new component enabling real-time voice interaction (microphone input, audio playback) and dynamic display of generated multi-modal content (images, videos) from the agents.
 
-## 5. Local Development and Testing
+## 6. Local Development and Testing
 
 -   **Environment Management**: A central `config.py` module loads environment variables from a `.env` file, making configuration straightforward.
 -   **Virtual Environment**: All Python dependencies are managed via a `.venv` virtual environment and a `pyproject.toml` file.
@@ -124,31 +125,3 @@ The system is composed of specialized agents that perform distinct functions.
     -   **Test Plans**: Detailed test plans and results are documented in `tests/docs/`.
 ````
 
-#### c. Planning Agent (`planning.py`)
--   **Trigger**: Can be invoked after the `ResearchAgent` has processed one or more papers.
--   **Function**: Synthesizes information from multiple documents to find conceptual overlaps and potential applications.
--   **Tooling**: Uses `scikit-learn`'s TF-IDF vectorizer to identify common, important terms across different texts.
--   **Output**: Stores a synthesis report (including concept overlap, a feasibility score, and example applications) in Redis.
-
-#### d. Analysis Agent (`analysis.py`)
--   **Trigger**: Can be invoked after the `PlanningAgent` has created a synthesis.
--   **Function**: Assesses the overall feasibility of the synthesized concepts.
--   **Output**: Produces a final feasibility score and rationale, stored in Redis.
-
-## 4. Frontend (`frontend/`)
-
--   **Framework**: React, intended to be used with **CopilotKit**.
--   **Purpose**: Provides a user-friendly interface for interacting with the agent system.
--   **Key Features**:
-    -   A chat interface for submitting queries.
-    -   A real-time dashboard to monitor the status and activity of each agent by subscribing to the Redis `agent:activity` channel via the WebSocket.
-    -   Components to visualize the results of the paper analysis and synthesis.
-
-## 5. Local Development and Testing
-
--   **Environment Management**: A central `config.py` module loads environment variables from a `.env` file, making configuration straightforward.
--   **Docker Compose**: A `docker-compose.yml` file is provided to simplify local setup by managing the Redis container and the application environment.
--   **Mocking**: The system is designed for offline development.
-    -   The `TavilyClient` can be replaced by a `MockTavilyClient` by setting `TAVILY_API_KEY=mock` in the `.env` file.
-    -   The `CoordinatorAgent` falls back to a non-AI heuristic if a `GOOGLE_API_KEY` is not provided for DSPy.
--   **Unit Testing**: The architecture supports local unit tests for individual agents and components. (Testing framework to be set up).

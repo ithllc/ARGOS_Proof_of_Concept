@@ -6,9 +6,10 @@ from typing import List
 from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
 
+from multi_modal_tools import generate_architecture_image, generate_example_video
+
 import dspy
 from redis_client import redis_client
-
 
 class DecomposeQuery(dspy.Signature):
     """Decompose a complex research query into a series of simpler, actionable search tasks."""
@@ -70,13 +71,51 @@ def decompose_and_dispatch(query: str, session_id: str | None = None) -> List[st
     )
     return pushed_task_ids
 
+async def process_voice_input(query: str, session_id: str, response_channel: str):
+    """Processes a voice input query, decides on action, and publishes response."""
+    response_data = {"type": "agent_response", "session_id": session_id}
+
+    # Simple heuristic for demonstration:
+    if "diagram" in query.lower() or "architecture image" in query.lower():
+        image_url = await generate_architecture_image(query)
+        response_data["text"] = "Here is the architecture image you requested."
+        response_data["media_url"] = image_url
+        response_data["media_type"] = "image"
+    elif "video" in query.lower() or "example video" in query.lower():
+        video_url = await generate_example_video(query)
+        response_data["text"] = "Here is the video you requested."
+        response_data["media_url"] = video_url
+        response_data["media_type"] = "video"
+    else:
+        # Fallback to existing decomposition logic
+        tasks = decompose_and_dispatch(query, session_id)
+        response_data["text"] = f"I've decomposed your query into {len(tasks)} tasks."
+        # In a real scenario, you might wait for research results before responding.
+        # For now, just acknowledge the decomposition.
+
+    redis_client.publish_message(response_channel, json.dumps(response_data))
+    return "Voice input processed."
+
+
 root_agent = LlmAgent(
     name="coordinator",
-    instruction="You are the coordinator agent. Your job is to decompose a user's query into a series of search tasks.",
+    instruction="You are the coordinator agent. Your job is to decompose a user's query into a series of search tasks, or generate multi-modal content if requested.",
     tools=[
         FunctionTool(
             func=decompose_and_dispatch,
             description="Decomposes a complex research query into a series of simpler, actionable search tasks.",
-        )
+        ),
+        FunctionTool(
+            func=generate_architecture_image,
+            description="Generates a software architecture image based on a textual description using Imagen 3.",
+        ),
+        FunctionTool(
+            func=generate_example_video,
+            description="Generates a short video based on a textual description of a real-world scenario using Veo.",
+        ),
+        FunctionTool(
+            func=process_voice_input,
+            description="Processes a voice input query, decides whether to decompose it or generate multi-modal content, and publishes the response.",
+        ),
     ]
 )
