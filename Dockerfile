@@ -19,7 +19,5 @@ ENV PYTHONPATH=/app/src
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
 
-# Run the FastAPI application
-# The command to run the FastAPI app is 'uvicorn src.main:app --host 0.0.0.0 --port 8000'
-# The 'src' directory is where main.py is located.
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the FastAPI application, using the PORT environment variable if it's set, otherwise default to 8000
+CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
