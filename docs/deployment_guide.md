@@ -243,3 +243,5 @@ gcloud builds submit --config ARGOS_POS/cloudbuild.yaml .
 ```
 
 **Important:** The `cloudbuild.yaml` file has placeholders for your environment variables (`GOOGLE_API_KEY`, `REDIS_HOST`, `REDIS_PORT`, `TAVILY_API_KEY`). For a production deployment, it is highly recommended to store these secrets in [Google Secret Manager](https://cloud.google.com/secret-manager) and grant your Cloud Run service access to them. Additionally, ensure the Cloud Run service account has the necessary IAM roles for Google Cloud Speech-to-Text, Text-to-Speech, and AI Platform services (e.g., `roles/speech.viewer`, `roles/texttospeech.viewer`, `roles/aiplatform.user`). For a quick test, you can replace the placeholder values directly in the `cloudbuild.yaml` file, but be careful not to commit them to your repository.
+
+**Note on Project ID:** The file `src/multi_modal_tools.py` contains a placeholder for your Google Cloud project ID. Make sure to replace `"your-gcp-project-id"` with your actual project ID.

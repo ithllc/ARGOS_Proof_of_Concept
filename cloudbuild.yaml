@@ -1,11 +1,12 @@
 steps:
 # Build the container image
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-poc-repo/argos-poc:latest', '.']
+  dir: 'ARGOS_POS'
+  args: ['build', '-t', 'us-central1-docker.pkg.dev/argos-proof-of-concept/argos-poc-repo/argos-poc:latest', '.']
 
 # Push the container image to Artifact Registry
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-poc-repo/argos-poc:latest']
+  args: ['push', 'us-central1-docker.pkg.dev/argos-proof-of-concept/argos-poc-repo/argos-poc:latest']
 
 # Deploy container image to Cloud Run, injecting secrets
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -15,7 +16,7 @@ steps:
   - 'deploy'
   - 'argos-pos-service'
   - '--image'
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-poc-repo/argos-poc:latest'
+  - 'us-central1-docker.pkg.dev/argos-proof-of-concept/argos-poc-repo/argos-poc:latest'
   - '--region'
   - 'us-central1'
   - '--platform'
@@ -31,4 +32,4 @@ steps:
   - '--set-secrets=TAVILY_API_KEY=ARGOS_TAVILY_API_KEY:latest'
 
 images:
-- 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-poc-repo/argos-poc:latest'
+- 'us-central1-docker.pkg.dev/argos-proof-of-concept/argos-poc-repo/argos-poc:latest'
