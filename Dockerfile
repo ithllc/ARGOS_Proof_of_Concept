@@ -20,4 +20,4 @@ ENV PYTHONPATH=/app/src
 EXPOSE 8080
 
 # Run the FastAPI application with Gunicorn, a production-ready server
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "--bind", "0.0.0.0:${PORT}", "src.main:app"]
+CMD ["sh", "-c", "gunicorn -k uvicorn.workers.UvicornWorker -w 4 --bind 0.0.0.0:${PORT:-8080} src.main:app"]
