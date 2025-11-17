@@ -19,5 +19,5 @@ ENV PYTHONPATH=/app/src
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
 
-# Run the FastAPI application, using the PORT environment variable if it's set, otherwise default to 8000
-CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Run the FastAPI application with Gunicorn, a production-ready server
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "--bind", "0.0.0.0:${PORT}", "src.main:app"]
