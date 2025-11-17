@@ -1,11 +1,11 @@
 steps:
 # Build the container image
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-repo/argos-pos:latest', '.']
+  args: ['build', '-t', 'us-central1-docker.pkg.dev/argos-proof-of-concept/argos-poc-repo/argos-poc:latest', '.']
 
 # Push the container image to Artifact Registry
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-repo/argos-pos:latest']
+  args: ['push', 'us-central1-docker.pkg.dev/argos-proof-of-concept/argos-poc-repo/argos-poc:latest']
 
 # Deploy container image to Cloud Run
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -15,7 +15,7 @@ steps:
   - 'deploy'
   - 'argos-pos-service' # You can change this service name
   - '--image'
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-repo/argos-pos:latest'
+  - 'us-central1-docker.pkg.dev/argos-proof-of-concept/argos-poc-repo/argos-poc:latest'
   - '--region'
   - 'us-central1'
   - '--platform'
@@ -33,4 +33,4 @@ steps:
   - 'REDIS_PORT=your-redis-port'
 
 images:
-- 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-repo/argos-pos:latest'
+- 'us-central1-docker.pkg.dev/argos-proof-of-concept/argos-poc-repo/argos-poc:latest'

@@ -18,20 +18,70 @@ All agents (`Coordinator`, `Research`, `Planning`, `Analysis`) were refactored f
 
 ### 1.2. FastAPI Server
 
-The `src/main.py` was simplified to use the ADK's `get_fast_api_app` function. This function handles the creation of the FastAPI application, agent loading, and serves the ADK's built-in web UI. It also now includes a dedicated WebSocket endpoint (`/ws/live`) for real-time voice interaction.
+The production FastAPI gateway is implemented in `src/main.py` and serves as the primary entry point for the ARGOS POC. Key design goals are to expose REST endpoints used by the frontend, provide WebSocket endpoints for real-time audio and live communication, and optionally register CopilotKit/AG-UI endpoints if the optional dependencies are present.
 
-```python
-# src/main.py
-from google.adk.cli.fast_api import get_fast_api_app
-import os
+Important design choices:
 
-agents_dir = os.path.join(os.path.dirname(__file__), "agents")
+- Production vs. Dev separation: `src/main.py` is the production FastAPI application (run on port 8000 in development). ADK's `get_fast_api_app()` is retained only for the ADK debugging UI and moved into `src/debug.py` so that the ADK web UI runs on a separate port (8001) and does not replace or conflict with the production app.
+- Optional CopilotKit / AG-UI registration: `main.py` attempts to register CopilotKit endpoints via `copilotkit.integrations.fastapi.add_fastapi_endpoint` and also registers AG-UI-wrapped ADK agents using `ag_ui_adk.ADkAgent` when those packages are installed. When missing, the server runs normally with no CopilotKit endpoints.
 
-app = get_fast_api_app(
-    agents_dir=agents_dir,
-    web=True,
-)
+Example: The main app exposes the following functionality when dependencies are installed:
+
+- GET `/` — Health check
+- GET `/status` — Application status
+- POST `/api/decompose` — Uses the Coordinator decomposition tools
+- GET `/api/papers` — High-level paper retrieval from Redis
+- WebSocket `/ws/{client_id}` — Broadcast channel for dashboard features
+- WebSocket `/ws/live` — Voice audio streaming (retains prior ADK Live behavior)
+- AG-UI / CopilotKit endpoints — `/copilotkit` (general remote endpoint) and individual ADK agent endpoints such as `/copilotkit/coordinator`, `/copilotkit/research`, etc. These are registered only if `copilotkit` and/or `ag_ui_adk` are installed.
+
+If you need to see the original `main.py` from the previous commit, you can fetch it for reference with Git:
+
+```bash
+cd /llm_models_python_code_src/ARGOS_POS
+git show f881136:src/main.py
 ```
+
+How to run production and debug servers locally:
+
+1) Run the main application (production FastAPI gateway):
+
+```bash
+cd /llm_models_python_code_src/ARGOS_POS
+uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+2) (Optional) Run the ADK Debug UI (development-only):
+
+```bash
+cd /llm_models_python_code_src/ARGOS_POS
+python -m src.debug
+# Debug UI available: http://localhost:8001
+```
+
+3) Start the frontend and point it to the CopilotKit endpoint if available:
+
+```bash
+cd /llm_models_python_code_src/ARGOS_POS/frontend
+npm start
+# Frontend: http://localhost:3000
+```
+
+Installing the optional CopilotKit/AG-UI dependencies for full integration:
+
+```bash
+cd /llm_models_python_code_src/ARGOS_POS
+poetry add ag_ui_adk
+poetry install
+
+# Install local CopilotKit SDK (development only)
+cd /llm_models_python_code_src/CoPilotKit/sdk-python
+pip install -e .
+```
+
+Notes:
+- Keep `src/debug.py` as a development-only tool — it runs `get_fast_api_app(..., web=True)` so you don't accidentally expose the ADK debug UI in production. `main.py` remains the production API that the React frontend integrates with.
+- If you rely on CopilotKit endpoints in the frontend, ensure `copilotkit` is installed in the same Python environment as the FastAPI app and that the CopilotKit SDK’s `add_fastapi_endpoint` is available to `main.py`.
 
 ### 1.3. Dependency Management
 
@@ -48,7 +98,7 @@ The following files were created to prepare the application for deployment.
 
 ### 2.1. `Dockerfile`
 
-A `Dockerfile` was created in the `ARGOS_POS` directory to containerize the application. Ensure that your `requirements.txt` file (generated from `pyproject.toml`) includes all necessary Google Cloud dependencies (e.g., `google-cloud-speech`, `google-cloud-texttospeech`, `google-cloud-aiplatform`).
+A `Dockerfile` was created in the `ARGOS_POS` directory of the local repository to containerize the application. Ensure that your `requirements.txt` file (generated from `pyproject.toml`) includes all necessary Google Cloud dependencies (e.g., `google-cloud-speech`, `google-cloud-texttospeech`, `google-cloud-aiplatform`).
 
 ```dockerfile
 # Use an official Python runtime as a parent image
@@ -84,11 +134,11 @@ A `cloudbuild.yaml` file was created in the `ARGOS_POS` directory to automate th
 steps:
 # Build the container image
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-repo/argos-pos:latest', '.']
+  args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-poc-repo/argos-poc:latest', '.']
 
 # Push the container image to Artifact Registry
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-repo/argos-pos:latest']
+  args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-poc-repo/argos-poc:latest']
 
 # Deploy container image to Cloud Run
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -98,7 +148,7 @@ steps:
   - 'deploy'
   - 'argos-pos-service' # You can change this service name
   - '--image'
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-repo/argos-pos:latest'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-poc-repo/argos-poc:latest'
   - '--region'
   - 'us-central1'
   - '--platform'
@@ -116,7 +166,7 @@ steps:
   - 'REDIS_PORT=your-redis-port'
 
 images:
-- 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-repo/argos-pos:latest'
+- 'us-central1-docker.pkg.dev/$PROJECT_ID/argos-poc-repo/argos-poc:latest'
 ```
 
 ## 3. Deployment Instructions
@@ -141,7 +191,7 @@ gcloud services enable aiplatform.googleapis.com
 You need a repository to store your container images. Create one with the following command (you only need to do this once per project):
 
 ```bash
-gcloud artifacts repositories create argos-repo \
+gcloud artifacts repositories create argos-poc-repo \
     --repository-format=docker \
     --location=us-central1 \
     --description="Docker repository for ARGOS project"
