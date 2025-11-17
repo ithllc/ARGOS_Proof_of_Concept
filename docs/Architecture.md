@@ -11,24 +11,48 @@ The architecture emphasizes modularity, real-time interaction, and state persist
 
 ## 2. Architectural Diagram
 
-The system has been refactored to use the Google Agent Development Kit (ADK) as its core backend framework. The ADK handles agent loading and serves a development UI.
+The system uses a dual-server architecture that separates production functionality from development tooling. The Google Agent Development Kit (ADK) agents are exposed through both a production FastAPI gateway (with CopilotKit integration) and a separate development UI for debugging.
 
 ```
-+----------------------+      +---------------------+      +-------------------------+
-|   Frontend UI        |----->|  FastAPI Gateway    |----->| ADK Live Coordinator    |
-| (React/VoiceInterface)|      | (main.py)           |      | (coordinator.py)        |
-| - Mic Input          |      | - /ws/live WebSocket|      | - Handles STT/TTS       |
-| - Audio Playback     |      +---------------------+      | - Invokes Tools         |
-+----------------------+                 ^                   +------------+------------+
-        ^                                |                                |
-        | (Audio Stream)                 | (Text Stream)                  | (Tool Calls)
-        v                                v                                v
-+----------------------+      +---------------------+      +-------------------------+
-| Google Cloud STT/TTS |<---->|  Voice Handler      |<---->|   Multi-Modal Tools     |
-| - Speech-to-Text     |      | (voice_handler.py)  |      | (multi_modal_tools.py)  |
-| - Text-to-Speech     |      +---------------------+      | - Imagen 3 (Image Gen)  |
-+----------------------+                                   | - Veo (Video Gen)       |
-                                                           +-------------------------+
++-------------------------+      +------------------------+      +-------------------------+
+|   React Frontend UI     |----->|  FastAPI Gateway       |----->| ADK Agent System        |
+| (Port 3000)             |      |  (main.py - Port 8000) |      |                         |
+| - CopilotKit UI         |      | - CopilotKit Endpoints |      | - Coordinator Agent     |
+| - Voice Interface       |      | - /copilotkit/*        |      | - Research Agent        |
+| - Chat Interface        |      | - /api/* endpoints     |      | - Planning Agent        |
+| - Dashboard             |      | - /ws/live WebSocket   |      | - Analysis Agent        |
++-------------------------+      | - /ws/{id} WebSocket   |      +-------------------------+
+                                 +------------------------+               |
+                                          |                               |
+                                          |          +--------------------+
+                                          |          |
+                                          v          v
+                        +------------------+  +---------------------+  +---------------------+
+                        |  Redis Layer     |  |  Voice Handler      |  | Multi-Modal Tools   |
+                        |                  |  | (voice_handler.py)  |  | (multi_modal_tools)|
+                        | - Pub/Sub        |  | - Google STT/TTS    |  | - Imagen 3          |
+                        | - Task Queues    |  | - Session Mgmt      |  | - Veo Video         |
+                        | - State Storage  |  +---------------------+  +---------------------+
+                        +------------------+
+
++-------------------------+
+|  ADK Debug Web UI       |
+|  (debug.py - Port 8001) |      [Development Only - Separate Server]
+|                         |
+| - Agent Testing         |      Access: http://localhost:8001
+| - Interactive Debugging |
+| - ADK Built-in UI       |      Purpose: Developer tool for testing and
++-------------------------+               debugging ADK agents in isolation
+```
+
++-------------------------+
+|  ADK Debug Web UI       |
+|  (debug.py - Port 8001) |      [Development Only - Separate Server]
+|                         |
+| - Agent Testing         |      Access: http://localhost:8001
+| - Interactive Debugging |
+| - ADK Built-in UI       |      Purpose: Developer tool for testing and
++-------------------------+               debugging ADK agents in isolation
 ```
 
 ## 3. Core Components
@@ -42,12 +66,12 @@ The system has been refactored to use the Google Agent Development Kit (ADK) as 
     -   This module is imported at the top of all key scripts to ensure variables are loaded before they are needed.
 
 ### 3.2. FastAPI Gateway (`src/main.py`)
--   **Purpose**: Serves as the primary entry point for the application.
+-   **Purpose**: Serves as the primary entry point for the production application.
 -   **Responsibilities**:
-    -   Uses the `get_fast_api_app` function from the Google Agent Development Kit (ADK).
-    -   This function automatically discovers and loads all ADK-compatible agents from the `src/agents/` directory.
-    -   It serves the ADK's built-in web UI for development and testing, which can be used to interact with the loaded agents.
-    -   Manages the underlying API endpoints required for the ADK framework to operate.
+    -   Provides RESTful API endpoints for task decomposition, paper retrieval, and status monitoring.
+    -   Manages WebSocket connections for real-time communication (`/ws/{client_id}` and `/ws/live`).
+    -   Integrates CopilotKit (AG-UI) endpoints to expose selected ADK agents at `/copilotkit/*`.
+    -   Manages the underlying API endpoints required for the ADK framework to operate (but does not use `get_fast_api_app` in production mode).
     -   Includes a dedicated WebSocket endpoint (`/ws/live`) for real-time voice interaction with the ADK Live protocol.
 
 ### 3.3. Redis (`src/redis_client.py`)
@@ -107,15 +131,47 @@ The system is composed of specialized agents that perform distinct functions.
 
 ## 5. Frontend (`frontend/`)
 
--   **Framework**: React, intended to be used with **CopilotKit**.
+-   **Framework**: React, integrated with **CopilotKit** for agent interaction.
 -   **Purpose**: Provides a user-friendly interface for interacting with the agent system.
+-   **Access**: 
+    -   **Development**: `http://localhost:3000` (runs via `npm start`)
+    -   **Production**: Deployed as a static site or via a web server
+-   **Connection**: Connects to the FastAPI Gateway (port 8000) via CopilotKit endpoints at `/copilotkit/*`
 -   **Key Features**:
-    -   A chat interface for submitting queries.
-    -   A real-time dashboard to monitor the status and activity of each agent by subscribing to the Redis `agent:activity` channel via the WebSocket.
-    -   Components to visualize the results of the paper analysis and synthesis.
-    -   **Voice Interface (`VoiceInterface.tsx`)**: A new component enabling real-time voice interaction (microphone input, audio playback) and dynamic display of generated multi-modal content (images, videos) from the agents.
+    -   **Chat Interface**: Submit queries and interact with the Coordinator Agent through a conversational UI powered by CopilotKit.
+    -   **Real-time Dashboard**: Monitor the status and activity of each agent by subscribing to the Redis `agent:activity` channel via WebSocket.
+    -   **Paper Visualization**: Components to visualize the results of paper analysis and synthesis.
+    -   **Voice Interface (`VoiceInterface.tsx`)**: Real-time voice interaction component enabling microphone input, audio playback, and dynamic display of generated multi-modal content (images, videos) from the agents.
+-   **Technology Stack**:
+    -   React 18.2+
+    -   CopilotKit UI components (`@copilotkit/react-core`, `@copilotkit/react-ui`)
+    -   TypeScript for type safety
+    -   WebSocket for real-time communication
 
-## 6. Local Development and Testing
+## 6. ADK Debug Web UI (`src/debug.py`)
+
+-   **Purpose**: A development-only tool for testing, debugging, and interacting with ADK agents in isolation.
+-   **Framework**: Uses Google ADK's built-in web UI (`get_fast_api_app` with `web=True`).
+-   **Access**: 
+    -   **URL**: `http://localhost:8001`
+    -   **Start Command**: `python -m src.debug` (from the `ARGOS_POS` directory)
+-   **Use Cases**:
+    -   **Agent Development**: Test individual agents during development without running the full production stack.
+    -   **Interactive Debugging**: Directly invoke agent tools and observe their behavior in real-time.
+    -   **Agent Discovery**: Automatically loads and displays all ADK-compatible agents from `src/agents/`.
+    -   **Rapid Prototyping**: Quickly test agent responses and tool integrations without frontend dependencies.
+-   **Key Features**:
+    -   Built-in chat interface for interacting with each agent
+    -   Tool execution visualization
+    -   Agent state inspection
+    -   Request/response logging
+-   **Important Notes**:
+    -   This is a **development-only** tool and should **not** be deployed to production.
+    -   Runs on a separate port (8001) to avoid conflicts with the production API (port 8000).
+    -   Can run simultaneously with the main application for side-by-side testing.
+    -   Does not include the CopilotKit integration or frontend UI components.
+
+## 7. Local Development and Testing
 
 -   **Environment Management**: A central `config.py` module loads environment variables from a `.env` file, making configuration straightforward.
 -   **Virtual Environment**: All Python dependencies are managed via a `.venv` virtual environment and a `pyproject.toml` file.

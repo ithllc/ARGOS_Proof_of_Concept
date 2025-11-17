@@ -35,7 +35,12 @@ app = get_fast_api_app(
 
 ### 1.3. Dependency Management
 
-The `pyproject.toml` was updated to resolve dependency conflicts between `google-adk` and other packages. The `copilotkit` package was removed as it was causing conflicts and is not needed when using the ADK's built-in web UI. A `requirements.txt` file was generated from the `pyproject.toml`. New dependencies for Google Cloud Speech-to-Text, Text-to-Speech, and AI Platform (for Imagen/Veo) were added to support the ADK Live and multi-modal features.
+The `pyproject.toml` was updated to resolve dependency conflicts and to add required integrations. Key additions:
+
+- `ag_ui_adk`: Provides the bridge between Google ADK agents and AG-UI/CopilotKit
+- `copilotkit`: Local CopilotKit Python SDK (linked via `path` to `CoPilotKit/sdk-python`) to enable CopilotKit endpoints
+
+A `requirements.txt` file was generated from the `pyproject.toml`. New dependencies for Google Cloud Speech-to-Text, Text-to-Speech, and AI Platform (for Imagen/Veo) were added to support the ADK Live and multi-modal features.
 
 ## 2. Deployment Artifacts
 
