@@ -1,7 +1,6 @@
 steps:
 # Build the container image
 - name: 'gcr.io/cloud-builders/docker'
-  dir: 'ARGOS_POS'
   args: ['build', '-t', 'us-central1-docker.pkg.dev/argos-proof-of-concept/argos-poc-repo/argos-poc:latest', '.']
 
 # Push the container image to Artifact Registry
