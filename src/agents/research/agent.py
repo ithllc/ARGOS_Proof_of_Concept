@@ -49,9 +49,9 @@ root_agent = LlmAgent(
     name="research",
     instruction="You are a research agent. You can search for papers and parse them.",
     tools=[
+        # Searches for a query and parses the results.
         FunctionTool(
             func=search_and_parse,
-            description="Searches for a query and parses the results.",
         )
     ]
 )

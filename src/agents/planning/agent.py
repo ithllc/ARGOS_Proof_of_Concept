@@ -61,9 +61,9 @@ root_agent = LlmAgent(
     name="planning",
     instruction="You are a planning agent. You can synthesize concepts from a list of papers.",
     tools=[
+        # Synthesizes concepts from a list of parsed papers.
         FunctionTool(
             func=synthesize,
-            description="Synthesizes concepts from a list of parsed papers.",
         )
     ]
 )

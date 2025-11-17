@@ -101,21 +101,21 @@ root_agent = LlmAgent(
     name="coordinator",
     instruction="You are the coordinator agent. Your job is to decompose a user's query into a series of search tasks, or generate multi-modal content if requested.",
     tools=[
+        # Decomposes a complex research query into a series of simpler, actionable search tasks.
         FunctionTool(
             func=decompose_and_dispatch,
-            description="Decomposes a complex research query into a series of simpler, actionable search tasks.",
         ),
+        # Generates a software architecture image based on a textual description using Imagen 3.
         FunctionTool(
             func=generate_architecture_image,
-            description="Generates a software architecture image based on a textual description using Imagen 3.",
         ),
+        # Generates a short video based on a textual description of a real-world scenario using Veo.
         FunctionTool(
             func=generate_example_video,
-            description="Generates a short video based on a textual description of a real-world scenario using Veo.",
         ),
+        # Processes a voice input query, decides whether to decompose it or generate multi-modal content, and publishes the response.
         FunctionTool(
             func=process_voice_input,
-            description="Processes a voice input query, decides whether to decompose it or generate multi-modal content, and publishes the response.",
         ),
     ]
 )

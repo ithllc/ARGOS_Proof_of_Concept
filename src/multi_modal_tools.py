@@ -95,14 +95,14 @@ def generate_example_video(description: str) -> str:
         return f"Sorry, I encountered an error while generating the video: {e}"
 
 # Create FunctionTool instances for the ADK
+# Generates an image of a software architecture diagram from a textual description.
 generate_architecture_image_tool = FunctionTool(
     generate_architecture_image,
-    description="Generates an image of a software architecture diagram from a textual description."
 )
 
+# Generates a short video of a real-world scenario from a textual description.
 generate_example_video_tool = FunctionTool(
     generate_example_video,
-    description="Generates a short video of a real-world scenario from a textual description."
 )
 
 MULTI_MODAL_TOOLS = [

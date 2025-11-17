@@ -33,9 +33,9 @@ root_agent = LlmAgent(
     name="analysis",
     instruction="You are an analysis agent. You can assess the feasibility of a synthesis.",
     tools=[
+        # Assesses the feasibility of a synthesis.
         FunctionTool(
             func=assess_feasibility,
-            description="Assesses the feasibility of a synthesis.",
         )
     ]
 )
