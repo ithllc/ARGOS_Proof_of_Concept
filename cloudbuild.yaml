@@ -33,3 +33,6 @@ steps:
 
 images:
 - 'us-central1-docker.pkg.dev/argos-proof-of-concept/argos-poc-repo/argos-poc:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
