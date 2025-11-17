@@ -197,6 +197,41 @@ gcloud artifacts repositories create argos-poc-repo \
     --description="Docker repository for ARGOS project"
 ```
 
+**Step 2.5: Create a Memorystore for Redis Instance and Secrets**
+
+For the deployed application to connect to Redis, you need a cloud-hosted Redis instance. You will also secure its connection details using Secret Manager.
+
+1.  **Enable the Redis and Secret Manager APIs:**
+    ```bash
+    gcloud services enable redis.googleapis.com
+    gcloud services enable secretmanager.googleapis.com
+    ```
+
+2.  **Create a Memorystore for Redis instance:**
+    This command creates a basic Redis instance. For production, you may need to configure VPC networking.
+    ```bash
+    gcloud redis instances create argos-redis --size=1 --region=us-central1
+    ```
+
+3.  **Get the Redis instance details:**
+    Note the `host` and `port` from the output of this command.
+    ```bash
+    gcloud redis instances describe argos-redis --region=us-central1
+    ```
+
+4.  **Create secrets for the Redis connection:**
+    Replace `<YOUR_REDIS_HOST>` and `<YOUR_REDIS_PORT>` with the values from the previous step.
+    ```bash
+    echo -n "<YOUR_REDIS_HOST>" | gcloud secrets create ARGOS_REDIS_HOST --data-file=-
+    echo -n "<YOUR_REDIS_PORT>" | gcloud secrets create ARGOS_REDIS_PORT --data-file=-
+    ```
+5.  **Create secrets for your API keys:**
+    Replace the placeholder values with your actual keys.
+    ```bash
+    echo -n "your-google-api-key" | gcloud secrets create ARGOS_GOOGLE_API_KEY --data-file=-
+    echo -n "your-tavily-api-key" | gcloud secrets create ARGOS_TAVILY_API_KEY --data-file=-
+    ```
+
 **Step 3: Submit the Build to Cloud Build**
 
 Now you can submit your application to Cloud Build. This command will read the `cloudbuild.yaml` file, build the image, push it to Artifact Registry, and deploy it to Cloud Run.
