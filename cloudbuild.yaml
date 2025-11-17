@@ -24,13 +24,26 @@ steps:
   - '--port'
   - '8000'
   # The following environment variables are needed by the application.
-  # You should set these to your actual values, preferably using Secret Manager.
-  - '--set-env-vars'
-  - 'GOOGLE_API_KEY=your-google-api-key'
-  - '--set-env-vars'
-  - 'REDIS_HOST=your-redis-host'
-  - '--set-env-vars'
-  - 'REDIS_PORT=your-redis-port'
+  # They are injected from Secret Manager.
+  - '--set-secrets'
+  - 'GOOGLE_API_KEY=ARGOS_GOOGLE_API_KEY:latest'
+  - '--set-secrets'
+  - 'REDIS_HOST=ARGOS_REDIS_HOST:latest'
+  - '--set-secrets'
+  - 'REDIS_PORT=ARGOS_REDIS_PORT:latest'
+  - '--set-secrets'
+  - 'TAVILY_API_KEY=ARGOS_TAVILY_API_KEY:latest'
 
 images:
 - 'us-central1-docker.pkg.dev/argos-proof-of-concept/argos-poc-repo/argos-poc:latest'
+
+availableSecrets:
+  secretManager:
+  - versionName: projects/$PROJECT_ID/secrets/ARGOS_GOOGLE_API_KEY/versions/latest
+    env: 'GOOGLE_API_KEY'
+  - versionName: projects/$PROJECT_ID/secrets/ARGOS_REDIS_HOST/versions/latest
+    env: 'REDIS_HOST'
+  - versionName: projects/$PROJECT_ID/secrets/ARGOS_REDIS_PORT/versions/latest
+    env: 'REDIS_PORT'
+  - versionName: projects/$PROJECT_ID/secrets/ARGOS_TAVILY_API_KEY/versions/latest
+    env: 'TAVILY_API_KEY'
