@@ -22,7 +22,7 @@ steps:
   - 'managed'
   - '--allow-unauthenticated'
   - '--port'
-  - '8000'
+  - '8080'
   # Mount secrets as environment variables
   # Ensure the Cloud Run service account has access to these secrets
   - '--set-secrets=GOOGLE_API_KEY=ARGOS_GOOGLE_API_KEY:latest'
