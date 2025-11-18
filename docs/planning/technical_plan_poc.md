@@ -45,12 +45,12 @@ Voice/Text Input → ADK Live Agent → FastAPI Gateway → Coordinator Agent
 
 ### 4.1. Python Environment
 
-A virtual environment will be created within the `/llm_models_python_code_src/ARGOS_POS` directory to maintain dependency isolation.
+A virtual environment will be created within the `/llm_models_python_code_src/ARGOS_POC` directory to maintain dependency isolation.
 
 **Command to create virtual environment:**
 ```bash
-python3 -m venv /llm_models_python_code_src/ARGOS_POS/.venv
-source /llm_models_python_code_src/ARGOS_POS/.venv/bin/activate
+python3 -m venv /llm_models_python_code_src/ARGOS_POC/.venv
+source /llm_models_python_code_src/ARGOS_POC/.venv/bin/activate
 ```
 
 ### 4.2. `pyproject.toml`

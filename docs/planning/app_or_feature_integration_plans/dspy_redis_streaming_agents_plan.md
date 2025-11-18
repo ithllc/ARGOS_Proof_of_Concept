@@ -38,21 +38,21 @@ This plan is broken down into steps with prompts suitable for a coding agent.
 
 **Task:** Modify the `CoordinatorAgent` to log all events from the `agent:activity` channel to a persistent Redis list.
 
-**File to Edit:** `/llm_models_python_code_src/ARGOS_POS/src/agents/coordinator.py`
+**File to Edit:** `/llm_models_python_code_src/ARGOS_POC/src/agents/coordinator.py`
 
 **Prompt for Coding Agent:**
 
-"Update the `CoordinatorAgent` in `/llm_models_python_code_src/ARGOS_POS/src/agents/coordinator.py`. Add a new method that runs in a background thread. This method should subscribe to the Redis `agent:activity` Pub/Sub channel. For each message received, it should push the message data onto a Redis list named `events:log`. To prevent this list from growing indefinitely, use the `LTRIM` command to cap its size at 1000 entries after each push."
+"Update the `CoordinatorAgent` in `/llm_models_python_code_src/ARGOS_POC/src/agents/coordinator.py`. Add a new method that runs in a background thread. This method should subscribe to the Redis `agent:activity` Pub/Sub channel. For each message received, it should push the message data onto a Redis list named `events:log`. To prevent this list from growing indefinitely, use the `LTRIM` command to cap its size at 1000 entries after each push."
 
 ### Step 2: Implement the Event Generalizer Agent
 
 **Task:** Create a new ADK agent that listens to `agent:activity`, filters for `CoordinatorAgent` events, generalizes them using DSPy, and publishes them to a user-session-specific channel.
 
-**File to Create:** `/llm_models_python_code_src/ARGOS_POS/src/agents/event_generalizer_agent.py`
+**File to Create:** `/llm_models_python_code_src/ARGOS_POC/src/agents/event_generalizer_agent.py`
 
 **Prompt for Coding Agent:**
 
-"Create a new file for an ADK agent at `/llm_models_python_code_src/ARGOS_POS/src/agents/event_generalizer_agent.py`.
+"Create a new file for an ADK agent at `/llm_models_python_code_src/ARGOS_POC/src/agents/event_generalizer_agent.py`.
 
 The agent should be named `EventGeneralizerAgent`.
 
@@ -75,11 +75,11 @@ The agent should be named `EventGeneralizerAgent`.
 
 **Task:** Create a new ADK agent that can answer questions about agent activity by using the Redis event log as a retrieval source.
 
-**File to Create:** `/llm_models_python_code_src/ARGOS_POS/src/agents/admin_rag_agent.py`
+**File to Create:** `/llm_models_python_code_src/ARGOS_POC/src/agents/admin_rag_agent.py`
 
 **Prompt for Coding Agent:**
 
-"Create a new file for an ADK agent at `/llm_models_python_code_src/ARGOS_POS/src/agents/admin_rag_agent.py`.
+"Create a new file for an ADK agent at `/llm_models_python_code_src/ARGOS_POC/src/agents/admin_rag_agent.py`.
 
 The agent should be named `AdminRAGAgent`.
 
@@ -106,11 +106,11 @@ The agent should be named `AdminRAGAgent`.
 
 **Task:** Add a section to the architecture document describing the new agents.
 
-**File to Edit:** `/llm_models_python_code_src/ARGOS_POS/docs/Architecture.md`
+**File to Edit:** `/llm_models_python_code_src/ARGOS_POC/docs/Architecture.md`
 
 **Prompt for Coding Agent:**
 
-"Update the architecture document at `/llm_models_python_code_src/ARGOS_POS/docs/Architecture.md`. Add a new subsection under `3.6. Agents` for the two new agents.
+"Update the architecture document at `/llm_models_python_code_src/ARGOS_POC/docs/Architecture.md`. Add a new subsection under `3.6. Agents` for the two new agents.
 
 -   **e. Event Generalizer Agent**: Describe its trigger (`agent:activity` channel), its function (summarizing events with DSPy), and its output (publishing to `frontend:ui_events`).
 -   **f. Admin RAG Agent**: Describe its trigger (direct invocation via an admin tool), its function (answering questions about system activity), and its tooling (a DSPy RAG program with a custom Redis retriever that reads from the `events:log`).

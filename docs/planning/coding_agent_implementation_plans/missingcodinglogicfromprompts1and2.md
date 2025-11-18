@@ -1,10 +1,10 @@
 # Missing Coding Logic from Prompts 1 & 2 — Mini-ARGOS POC
 
-This document captures missing logic from Prompt 1 (scaffolding) and Prompt 2 (backend: FastAPI & Redis), and records the actions taken to address them. It references `POC Idea #5` in `/llm_models_python_code_src/ARGOS_POS/docs/scaled_down_ideas_claude.md` and includes next steps.
+This document captures missing logic from Prompt 1 (scaffolding) and Prompt 2 (backend: FastAPI & Redis), and records the actions taken to address them. It references `POC Idea #5` in `/llm_models_python_code_src/ARGOS_POC/docs/scaled_down_ideas_claude.md` and includes next steps.
 
 ## What's already implemented
 
-- Project skeleton created under `ARGOS_POS/` including `src/`, `agents/`, `frontend/` and `docs/`
+- Project skeleton created under `ARGOS_POC/` including `src/`, `agents/`, `frontend/` and `docs/`
 - `pyproject.toml` and `.gitignore` created
 - Virtual environment set up and dependencies installed
 - `FastAPI` server in `src/main.py` with WebSocket endpoint

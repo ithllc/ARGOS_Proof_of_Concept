@@ -7,8 +7,8 @@ This project is a multi-agent system for research analysis. The backend agents a
 
 **Required Reading:**
 Before you begin, you MUST familiarize yourself with the project by reviewing these documents:
-1.  `/llm_models_python_code_src/ARGOS_POS/docs/technical_plan_poc.md`: Describes the overall technical plan and architecture.
-2.  `/llm_models_python_code_src/ARGOS_POS/docs/scaled_down_ideas_claude.md`: Provides the high-level concept for POC Idea #5, which this project is based on.
+1.  `/llm_models_python_code_src/ARGOS_POC/docs/technical_plan_poc.md`: Describes the overall technical plan and architecture.
+2.  `/llm_models_python_code_src/ARGOS_POC/docs/scaled_down_ideas_claude.md`: Provides the high-level concept for POC Idea #5, which this project is based on.
 3.  `/llm_models_python_code_src/CoPilotKit`: Review the contents of this directory to understand the features and implementation patterns of CopilotKit, which is required for the frontend.
 
 ---
@@ -17,7 +17,7 @@ Before you begin, you MUST familiarize yourself with the project by reviewing th
 
 #### Task 1: Create the CopilotKit Frontend
 
-Your first task is to build the React-based frontend in the `/llm_models_python_code_src/ARGOS_POS/frontend/` directory.
+Your first task is to build the React-based frontend in the `/llm_models_python_code_src/ARGOS_POC/frontend/` directory.
 
 **Requirements:**
 1.  **Initialize a React App:** If not already present, use `create-react-app` or Vite to scaffold a new React application in the `frontend` directory.

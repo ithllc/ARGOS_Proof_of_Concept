@@ -38,7 +38,7 @@ Example: The main app exposes the following functionality when dependencies are 
 If you need to see the original `main.py` from the previous commit, you can fetch it for reference with Git:
 
 ```bash
-cd /llm_models_python_code_src/ARGOS_POS
+cd ARGOS_Proof_of_Concept
 git show f881136:src/main.py
 ```
 
@@ -47,14 +47,14 @@ How to run production and debug servers locally:
 1) Run the main application (production FastAPI gateway):
 
 ```bash
-cd /llm_models_python_code_src/ARGOS_POS
+cd ARGOS_Proof_of_Concept
 uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 2) (Optional) Run the ADK Debug UI (development-only):
 
 ```bash
-cd /llm_models_python_code_src/ARGOS_POS
+cd ARGOS_Proof_of_Concept
 python -m src.debug
 # Debug UI available: http://localhost:8001
 ```
@@ -62,7 +62,7 @@ python -m src.debug
 3) Start the frontend and point it to the CopilotKit endpoint if available:
 
 ```bash
-cd /llm_models_python_code_src/ARGOS_POS/frontend
+cd ARGOS_Proof_of_Concept/frontend
 npm start
 # Frontend: http://localhost:3000
 ```
@@ -70,7 +70,7 @@ npm start
 Installing the optional CopilotKit/AG-UI dependencies for full integration:
 
 ```bash
-cd /llm_models_python_code_src/ARGOS_POS
+cd ARGOS_Proof_of_Concept
 poetry add ag_ui_adk
 poetry install
 
@@ -98,7 +98,7 @@ The following files were created to prepare the application for deployment.
 
 ### 2.1. `Dockerfile`
 
-A `Dockerfile` was created in the `ARGOS_POS` directory of the local repository to containerize the application. Ensure that your `requirements.txt` file (generated from `pyproject.toml`) includes all necessary Google Cloud dependencies (e.g., `google-cloud-speech`, `google-cloud-texttospeech`, `google-cloud-aiplatform`).
+A `Dockerfile` was created in the `ARGOS_Proof_of_Concept` directory of the local repository to containerize the application. Ensure that your `requirements.txt` file (generated from `pyproject.toml`) includes all necessary Google Cloud dependencies (e.g., `google-cloud-speech`, `google-cloud-texttospeech`, `google-cloud-aiplatform`).
 
 ```dockerfile
 # Use an official Python runtime as a parent image
@@ -128,7 +128,7 @@ CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ### 2.2. `cloudbuild.yaml`
 
-A `cloudbuild.yaml` file was created in the `ARGOS_POS` directory to automate the build and deployment process on Google Cloud.
+A `cloudbuild.yaml` file was created in the `ARGOS_Proof_of_Concept` directory to automate the build and deployment process on Google Cloud.
 
 ```yaml
 steps:
@@ -239,7 +239,7 @@ Now you can submit your application to Cloud Build. This command will read the `
 Before you run the command, make sure you are in the root of the project directory (`/llm_models_python_code_src`).
 
 ```bash
-gcloud builds submit --config ARGOS_POS/cloudbuild.yaml .
+gcloud builds submit --config ARGOS_Proof_of_Concept/cloudbuild.yaml .
 ```
 
 **Important:** The `cloudbuild.yaml` file has placeholders for your environment variables (`GOOGLE_API_KEY`, `REDIS_HOST`, `REDIS_PORT`, `TAVILY_API_KEY`). For a production deployment, it is highly recommended to store these secrets in [Google Secret Manager](https://cloud.google.com/secret-manager) and grant your Cloud Run service access to them. Additionally, ensure the Cloud Run service account has the necessary IAM roles for Google Cloud Speech-to-Text, Text-to-Speech, and AI Platform services (e.g., `roles/speech.viewer`, `roles/texttospeech.viewer`, `roles/aiplatform.user`). For a quick test, you can replace the placeholder values directly in the `cloudbuild.yaml` file, but be careful not to commit them to your repository.

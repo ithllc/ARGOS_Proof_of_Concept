@@ -71,11 +71,11 @@ The frontend `package.json` shows:
 
 #### Step 1.1: Install AG-UI ADK Package
 
-**File to Edit**: `/llm_models_python_code_src/ARGOS_POS/pyproject.toml`
+**File to Edit**: `/llm_models_python_code_src/ARGOS_POC/pyproject.toml`
 
 **Prompt for Coding Agent:**
 
-"Add the `ag_ui_adk` package to the dependencies in `/llm_models_python_code_src/ARGOS_POS/pyproject.toml`. This package is required for integrating Google ADK agents with CopilotKit via the AG-UI protocol.
+"Add the `ag_ui_adk` package to the dependencies in `/llm_models_python_code_src/ARGOS_POC/pyproject.toml`. This package is required for integrating Google ADK agents with CopilotKit via the AG-UI protocol.
 
 Under the `[tool.poetry.dependencies]` section, add:
 ```
@@ -109,7 +109,7 @@ This will install the `copilotkit` package in editable mode, allowing us to use 
 
 #### Step 2.1: Restore Original main.py Structure
 
-**File to Edit**: `/llm_models_python_code_src/ARGOS_POS/src/main.py`
+**File to Edit**: `/llm_models_python_code_src/ARGOS_POC/src/main.py`
 
 **Prompt for Coding Agent:**
 
@@ -117,11 +117,11 @@ This will install the `copilotkit` package in editable mode, allowing us to use 
 
 1. **Revert to Base Structure**: Use the following command to see the original file:
    ```bash
-   cd /llm_models_python_code_src/ARGOS_POS
+   cd /llm_models_python_code_src/ARGOS_POC
    git show f881136:src/main.py
    ```
 
-2. **Create New main.py**: Replace the current `/llm_models_python_code_src/ARGOS_POS/src/main.py` with this structure:
+2. **Create New main.py**: Replace the current `/llm_models_python_code_src/ARGOS_POC/src/main.py` with this structure:
 
 ```python
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -235,7 +235,7 @@ async def websocket_live_endpoint(websocket: WebSocket):
 
 #### Step 2.2: Integrate ADK Agents with CopilotKit via AG-UI
 
-**File to Edit**: `/llm_models_python_code_src/ARGOS_POS/src/main.py`
+**File to Edit**: `/llm_models_python_code_src/ARGOS_POC/src/main.py`
 
 **Prompt for Coding Agent:**
 
@@ -320,11 +320,11 @@ print(\"  - /copilotkit/analysis\")
 
 #### Step 3.1: Create debug.py for ADK Web UI
 
-**File to Create**: `/llm_models_python_code_src/ARGOS_POS/src/debug.py`
+**File to Create**: `/llm_models_python_code_src/ARGOS_POC/src/debug.py`
 
 **Prompt for Coding Agent:**
 
-"Create a new file `/llm_models_python_code_src/ARGOS_POS/src/debug.py` that serves the ADK Web UI for development and debugging purposes. This will run on a separate port from the main application.
+"Create a new file `/llm_models_python_code_src/ARGOS_POC/src/debug.py` that serves the ADK Web UI for development and debugging purposes. This will run on a separate port from the main application.
 
 ```python
 \"\"\"
@@ -360,7 +360,7 @@ if __name__ == \"__main__\":
 
 To run the debug UI:
 ```bash
-cd /llm_models_python_code_src/ARGOS_POS
+cd /llm_models_python_code_src/ARGOS_POC
 python -m src.debug
 ```
 
@@ -374,11 +374,11 @@ This will start the ADK Web UI on port 8001, separate from the production applic
 
 #### Step 4.1: Create tsconfig.json
 
-**File to Create**: `/llm_models_python_code_src/ARGOS_POS/frontend/tsconfig.json`
+**File to Create**: `/llm_models_python_code_src/ARGOS_POC/frontend/tsconfig.json`
 
 **Prompt for Coding Agent:**
 
-"Create a TypeScript configuration file `/llm_models_python_code_src/ARGOS_POS/frontend/tsconfig.json` to resolve the JSX-related errors in `VoiceInterface.tsx`.
+"Create a TypeScript configuration file `/llm_models_python_code_src/ARGOS_POC/frontend/tsconfig.json` to resolve the JSX-related errors in `VoiceInterface.tsx`.
 
 ```json
 {
@@ -421,7 +421,7 @@ The critical fix is the `\"jsx\": \"react-jsx\"` option, which tells TypeScript 
 
 "Update the frontend's `package.json` to include TypeScript and necessary type definitions.
 
-Navigate to `/llm_models_python_code_src/ARGOS_POS/frontend` and run:
+Navigate to `/llm_models_python_code_src/ARGOS_POC/frontend` and run:
 
 ```bash
 npm install --save-dev typescript @types/react @types/react-dom @types/node
@@ -441,11 +441,11 @@ This will install:
 
 #### Step 5.1: Create CopilotKit Provider
 
-**File to Create**: `/llm_models_python_code_src/ARGOS_POS/frontend/src/App.tsx`
+**File to Create**: `/llm_models_python_code_src/ARGOS_POC/frontend/src/App.tsx`
 
 **Prompt for Coding Agent:**
 
-"Create or update `/llm_models_python_code_src/ARGOS_POS/frontend/src/App.tsx` to set up the CopilotKit provider that connects to the backend agents.
+"Create or update `/llm_models_python_code_src/ARGOS_POC/frontend/src/App.tsx` to set up the CopilotKit provider that connects to the backend agents.
 
 ```typescript
 import React from 'react';
@@ -491,7 +491,7 @@ export default App;
 
 #### Step 6.1: Update Architecture.md
 
-**File to Edit**: `/llm_models_python_code_src/ARGOS_POS/docs/Architecture.md`
+**File to Edit**: `/llm_models_python_code_src/ARGOS_POC/docs/Architecture.md`
 
 **Prompt for Coding Agent:**
 
@@ -542,7 +542,7 @@ This architecture allows the Google ADK agents to be used in a web-based, user-f
 
 #### Step 6.2: Update Deployment Guide
 
-**File to Edit**: `/llm_models_python_code_src/ARGOS_POS/docs/deployment_guide.md`
+**File to Edit**: `/llm_models_python_code_src/ARGOS_POC/docs/deployment_guide.md`
 
 **Prompt for Coding Agent:**
 
@@ -577,19 +577,19 @@ For local development, you need to run both the main application and (optionally
 
 **Terminal 1 - Main Application**:
 ```bash
-cd /llm_models_python_code_src/ARGOS_POS
+cd /llm_models_python_code_src/ARGOS_POC
 uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Terminal 2 - Frontend**:
 ```bash
-cd /llm_models_python_code_src/ARGOS_POS/frontend
+cd /llm_models_python_code_src/ARGOS_POC/frontend
 npm start
 ```
 
 **Terminal 3 - Debug UI (Optional)**:
 ```bash
-cd /llm_models_python_code_src/ARGOS_POS
+cd /llm_models_python_code_src/ARGOS_POC
 python -m src.debug
 ```
 
@@ -611,7 +611,7 @@ Access points:
 
 "After implementing all changes, create a verification script to test that all endpoints are working correctly.
 
-Create `/llm_models_python_code_src/ARGOS_POS/scripts/verify_endpoints.py`:
+Create `/llm_models_python_code_src/ARGOS_POC/scripts/verify_endpoints.py`:
 
 ```python
 \"\"\"
@@ -698,7 +698,7 @@ The dual-server approach (production + debug) provides:
 If any issues arise during implementation, you can safely rollback:
 
 ```bash
-cd /llm_models_python_code_src/ARGOS_POS
+cd /llm_models_python_code_src/ARGOS_POC
 git checkout f881136 -- src/main.py  # Restore fifth commit version
 ```
 

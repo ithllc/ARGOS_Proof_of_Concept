@@ -1,4 +1,4 @@
-# Mini-ARGOS POC Architecture
+# ARGOS POC Architecture
 
 **Document Version:** 1.1
 **Date:** November 15, 2025
@@ -60,7 +60,7 @@ The system uses a dual-server architecture that separates production functionali
 ### 3.1. Configuration (`src/config.py`)
 -   **Purpose**: To centralize and manage environment variables.
 -   **Responsibilities**:
-    -   Uses the `python-dotenv` library to automatically find and load the `.env` file from the project root (`ARGOS_POS/.env`).
+    -   Uses the `python-dotenv` library to automatically find and load the `.env` file from the project root (`ARGOS_Proof_of_Concept/.env`).
     -   Makes environment variables (like API keys and Redis connection details) available to the entire application.
     -   Logs a warning if the `.env` file is not found, preventing silent failures.
     -   This module is imported at the top of all key scripts to ensure variables are loaded before they are needed.
@@ -154,7 +154,7 @@ The system is composed of specialized agents that perform distinct functions.
 -   **Framework**: Uses Google ADK's built-in web UI (`get_fast_api_app` with `web=True`).
 -   **Access**: 
     -   **URL**: `http://localhost:8001`
-    -   **Start Command**: `python -m src.debug` (from the `ARGOS_POS` directory)
+    -   **Start Command**: `python -m src.debug` (from the `ARGOS_Proof_of_Concept` directory)
 -   **Use Cases**:
     -   **Agent Development**: Test individual agents during development without running the full production stack.
     -   **Interactive Debugging**: Directly invoke agent tools and observe their behavior in real-time.

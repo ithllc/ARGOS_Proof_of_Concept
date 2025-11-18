@@ -450,7 +450,7 @@ HSET "session:voice_789" "last_interaction" "1699999999"
 
 ### Code Structure
 ```
-ARGOS_POS/
+ARGOS_POC/
 ├── README.md
 ├── requirements.txt
 ├── docker-compose.yml          # Redis + app for local dev

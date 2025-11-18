@@ -1,7 +1,7 @@
 # CopilotKit ADK Re-Integration — Updated Status
 
 **Date:** November 16, 2025
-**Based on plan:** `/llm_models_python_code_src/ARGOS_POS/docs/copilotkit_adk_reintegration_plan.md`
+**Based on plan:** `/llm_models_python_code_src/ARGOS_POC/docs/copilotkit_adk_reintegration_plan.md`
 
 This document summarizes the changes implemented from the reintegration plan and notes what still needs attention.
 
