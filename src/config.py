@@ -19,19 +19,37 @@ def load_google_secrets():
     try:
         from google.cloud import secretmanager
         client = secretmanager.SecretManagerServiceClient()
+
+        # Resolve GCP project id: prefer env var, then ADC, then metadata server
         project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
         if not project_id:
-            # Try to get project ID from gcloud config
-            import subprocess
+            # Prefer Application Default Credentials (ADC)
             try:
-                project_id = subprocess.check_output(
-                    ['gcloud', 'config', 'get-value', 'project'],
-                    text=True
-                ).strip()
-                os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                logging.error("GOOGLE_CLOUD_PROJECT environment variable not set and could not be determined from gcloud config.")
-                return
+                from google.auth import default as google_auth_default
+                _, project_id = google_auth_default()
+                if project_id:
+                    logging.info("Determined project_id from ADC.")
+            except Exception:
+                project_id = None
+
+        if not project_id:
+            # Fall back to the metadata server (Cloud Run / GCE)
+            try:
+                import requests
+                metadata_url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+                resp = requests.get(metadata_url, headers={"Metadata-Flavor": "Google"}, timeout=2)
+                if resp.ok and resp.text:
+                    project_id = resp.text.strip()
+                    logging.info("Determined project_id from metadata server.")
+            except Exception as e:
+                logging.warning(f"Could not determine project_id from metadata server: {e}")
+
+        if not project_id:
+            logging.error("GOOGLE_CLOUD_PROJECT environment variable not set and could not be determined from ADC or metadata.")
+            return
+
+        # Export to env for downstream compatibility
+        os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
 
         secrets_to_load = {
             "ARGOS_GOOGLE_API_KEY": "GOOGLE_API_KEY",

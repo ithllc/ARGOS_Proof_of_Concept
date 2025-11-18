@@ -81,6 +81,23 @@ For instructions on how to build and deploy this application to Google Cloud, pl
 
 [**ARGOS POC Deployment Guide**](./docs/deployment_guide.md)
 
+## Testing project-id resolution (ADC & metadata)
+
+When running the application in Cloud Run the project id is usually available from either Application Default Credentials (ADC) or the metadata server. For local runs you can set the `GOOGLE_CLOUD_PROJECT` environment variable.
+
+Local quick test:
+
+```bash
+# Run with the env var set so secrets will load locally
+export GOOGLE_CLOUD_PROJECT=argos-proof-of-concept
+export PYTHONPATH=$(pwd)/src
+python -c "from src.config import load_google_secrets; load_google_secrets()"
+```
+
+Verify logs show ADC or metadata resolution when running in Cloud Run. No `GOOGLE_CLOUD_PROJECT` env var should be necessary when deployed — the runtime should use ADC or the metadata server automatically.
+
+If you prefer to supply the project as a secret instead, you can add a Secret Manager secret named `GOOGLE_CLOUD_PROJECT` and map it to the environment using the Cloud Run `--set-secrets` option. That is appropriate if you centralize config management, but it is generally not necessary for non-sensitive values like a project id.
+
 ## Component Notes
 
 ### DSPy Integration

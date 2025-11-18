@@ -58,12 +58,24 @@ The system uses a dual-server architecture that separates production functionali
 ## 3. Core Components
 
 ### 3.1. Configuration (`src/config.py`)
--   **Purpose**: To centralize and manage environment variables.
+-   **Purpose**: To centralize and manage environment variables and secrets for both local and cloud deployments.
 -   **Responsibilities**:
-    -   Uses the `python-dotenv` library to automatically find and load the `.env` file from the project root (`ARGOS_Proof_of_Concept/.env`).
-    -   Makes environment variables (like API keys and Redis connection details) available to the entire application.
-    -   Logs a warning if the `.env` file is not found, preventing silent failures.
-    -   This module is imported at the top of all key scripts to ensure variables are loaded before they are needed.
+    -   Uses the `python-dotenv` library to automatically find and load the `.env` file from the project root (`ARGOS_Proof_of_Concept/.env`) when running locally.
+    -   When running in Google Cloud (e.g., Cloud Run or Cloud Functions) the module loads secrets from **Google Secret Manager** rather than relying on a local `.env` file.
+    -   Resolves the GCP project id using the following order of precedence:
+        1. `GOOGLE_CLOUD_PROJECT` environment variable (explicit override)
+        2. Application Default Credentials (ADC) via `google.auth.default()`
+        3. Google Cloud metadata server at `http://metadata.google.internal/computeMetadata/v1/project/project-id` (Cloud Run/GCE fallback)
+      -  The module avoids calling `gcloud` via subprocess to determine the project id, which makes it safe for remote runtime environments where `gcloud` is not present.
+    -   When a project id is resolved, the module sets `os.environ["GOOGLE_CLOUD_PROJECT"]` so downstream components can rely on it.
+    -   Loads specific secrets from Secret Manager and maps them into conventional environment variables for the app:
+        - `ARGOS_GOOGLE_API_KEY` -> `GOOGLE_API_KEY`
+        - `ARGOS_REDIS_HOST` -> `REDIS_HOST`
+        - `ARGOS_REDIS_PORT` -> `REDIS_PORT`
+        - `ARGOS_TAVILY_API_KEY` -> `TAVILY_API_KEY`
+    -   Logs informative messages describing which resolution method was used (ADC, metadata), warns when secrets cannot be loaded, and fails gracefully — it does not crash if secrets cannot be determined.
+    -   Designed to be imported at the top of key scripts so environment variables and secrets are set before other modules need them.
+    -   Security note: the Cloud Run service account should be granted Secret Manager access for this to work; otherwise secrets will not be retrieved and warnings will be logged.
 
 ### 3.2. FastAPI Gateway (`src/main.py`)
 -   **Purpose**: Serves as the primary entry point for the production application.
