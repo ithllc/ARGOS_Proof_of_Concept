@@ -35,7 +35,7 @@ class RedisClient:
             self.client = redis.Redis(**connection_kwargs)
             self.client.ping()
             print(f"Successfully connected to Redis at {redis_host}:{redis_port}.")
-        except redis.exceptions.ConnectionError as e:
+        except (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError) as e:
             print(f"Error connecting to Redis: {e}")
             self.client = None
 

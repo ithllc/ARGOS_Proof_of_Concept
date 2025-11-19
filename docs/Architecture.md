@@ -88,6 +88,8 @@ The system uses a dual-server architecture that separates production functionali
 
 ### 3.3. Redis (`src/redis_client.py`)
 -   **Purpose**: Acts as the central nervous system for the entire application. It is used for messaging, state management, and caching.
+-   **Robustness**: The client is designed to handle connection errors gracefully during initialization, ensuring the application can start even if Redis is temporarily unreachable.
+-   **Cloud Deployment**: For Cloud Run deployments, a Serverless VPC Access Connector is required to enable connectivity to private Redis instances (e.g., Google Cloud Memorystore) within a VPC network.
 -   **Data Structures Used**:
     -   **Lists**: For creating FIFO (First-In, First-Out) task queues (e.g., `tasks:research`).
     -   **Hashes**: To store detailed state information for each task (`task:<id>`) and the content of parsed papers (`paper:<id>`).

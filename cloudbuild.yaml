@@ -31,6 +31,7 @@ steps:
   - '--set-secrets=REDIS_HOST=ARGOS_REDIS_HOST:latest'
   - '--set-secrets=REDIS_PORT=ARGOS_REDIS_PORT:latest'
   - '--set-secrets=TAVILY_API_KEY=ARGOS_TAVILY_API_KEY:latest'
+  - '--vpc-connector=projects/argos-proof-of-concept/locations/us-central1/connectors/argos-pos-vpc-connector'
 
 images:
 - 'us-central1-docker.pkg.dev/argos-proof-of-concept/argos-poc-repo/argos-poc:latest'
