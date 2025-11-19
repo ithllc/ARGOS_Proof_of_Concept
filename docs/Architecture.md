@@ -193,5 +193,15 @@ The system is composed of specialized agents that perform distinct functions.
     -   **Mocking**: All external dependencies (Redis, MCP clients, LLMs) are mocked using `unittest.mock` and a custom `MockRedisClient`, allowing for fast, isolated, and reliable local testing.
     -   **Test Runner**: A `run_tests.sh` script is provided to execute the entire test suite, ensuring the correct Python path and environment are used.
     -   **Test Plans**: Detailed test plans and results are documented in `tests/docs/`.
+
+## 8. Cloud Deployment and Infrastructure
+
+This section outlines the key components for deploying the ARGOS POC to Google Cloud.
+
+-   **Continuous Deployment**: The `cloudbuild.yaml` file defines the continuous integration and deployment (CI/CD) pipeline using Google Cloud Build. It automates the process of building the Docker container, pushing it to the Artifact Registry, and deploying it to Cloud Run.
+
+-   **VPC Connectivity**: The Cloud Run service requires a Serverless VPC Access Connector to communicate with private resources like the Google Cloud Memorystore (Redis) instance.
+    -   **Provisioning**: The `scripts/create_vpc_connector.sh` script is provided to create and configure the necessary `argos-pos-vpc-connector`. This script must be run once to set up the required networking infrastructure in the GCP project before deploying the service.
+    -   **Configuration**: The `cloudbuild.yaml` file is configured to use this connector, ensuring the Cloud Run service has the necessary network access.
 ````
 
