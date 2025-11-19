@@ -2,6 +2,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Body
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import os
+from fastapi.staticfiles import StaticFiles
+from starlette.responses import FileResponse # Import FileResponse
 
 # Ensure environment is loaded early
 import config
@@ -58,7 +60,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-@app.get("/")
+@app.get("/api/health") # Renamed from "/" to "/api/health"
 async def read_root():
     return {"message": "Mini-ARGOS POC is running"}
 
@@ -188,3 +190,29 @@ if ADKAgent and add_adk_fastapi_endpoint:
         print("AG-UI ADK endpoints registered under /copilotkit/*")
     except Exception as e:
         print("Failed to register AG-UI ADK endpoints:", e)
+
+# ==============================================================================
+# Serve Frontend Static Files
+# ==============================================================================
+
+# Directory where the frontend build artifacts are located
+FRONTEND_BUILD_DIR = "/app/frontend/build"
+
+# Serve static files from the 'static' subdirectory of the frontend build
+app.mount("/static", StaticFiles(directory=f"{FRONTEND_BUILD_DIR}/static"), name="static")
+
+# Route for the root URL, serving the main index.html
+@app.get("/")
+async def serve_index():
+    return FileResponse(f"{FRONTEND_BUILD_DIR}/index.html")
+
+# Catch-all route for client-side routing (SPA history mode)
+# This should be the very last route registered
+@app.get("/{full_path:path}")
+async def serve_spa(full_path: str):
+    # Check if the requested path is a file that exists in the build directory
+    # If it's an API route or other specific server-side route, it would have been matched before this.
+    file_path = os.path.join(FRONTEND_BUILD_DIR, full_path)
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    return FileResponse(f"{FRONTEND_BUILD_DIR}/index.html")

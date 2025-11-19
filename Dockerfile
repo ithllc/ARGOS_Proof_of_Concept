@@ -1,4 +1,14 @@
-# Use an official Python runtime as a parent image
+# Stage 1: Build the React frontend
+FROM node:18-alpine AS build-step
+
+WORKDIR /app/frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm install
+COPY frontend/ .
+RUN npm run build
+
+# Stage 2: Build the Python application
 FROM python:3.11-slim-buster
 
 # Set the working directory in the container
@@ -9,6 +19,9 @@ COPY requirements.txt .
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the built frontend from the build-step stage
+COPY --from=build-step /app/frontend/build /app/frontend/build
 
 # Copy the rest of the application code into the container at /app
 COPY . .

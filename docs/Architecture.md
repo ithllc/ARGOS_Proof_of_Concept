@@ -146,10 +146,10 @@ The system is composed of specialized agents that perform distinct functions.
 ## 5. Frontend (`frontend/`)
 
 -   **Framework**: React, integrated with **CopilotKit** for agent interaction.
--   **Purpose**: Provides a user-friendly interface for interacting with the agent system.
+-   **Purpose**: Provides a user-friendly interface for interacting with the agent system. It is now built into static assets as part of the Docker image and served directly by the FastAPI application within the same Cloud Run service.
 -   **Access**: 
     -   **Development**: `http://localhost:3000` (runs via `npm start`)
-    -   **Production**: Deployed as a static site or via a web server
+    -   **Production**: Served directly by the Cloud Run service (e.g., `https://your-cloud-run-url.run.app`)
 -   **Connection**: Connects to the FastAPI Gateway (port 8000) via CopilotKit endpoints at `/copilotkit/*`
 -   **Key Features**:
     -   **Chat Interface**: Submit queries and interact with the Coordinator Agent through a conversational UI powered by CopilotKit.
@@ -199,6 +199,7 @@ The system is composed of specialized agents that perform distinct functions.
 This section outlines the key components for deploying the ARGOS POC to Google Cloud.
 
 -   **Continuous Deployment**: The `cloudbuild.yaml` file defines the continuous integration and deployment (CI/CD) pipeline using Google Cloud Build. It automates the process of building the Docker container, pushing it to the Artifact Registry, and deploying it to Cloud Run.
+    -   **Multi-Stage Docker Build**: The `Dockerfile` now includes a multi-stage build process where the frontend (React) is built into static assets in a Node.js stage, and these assets are then copied into the final Python application image to be served by FastAPI.
 
 -   **VPC Connectivity**: The Cloud Run service requires a Serverless VPC Access Connector to communicate with private resources like the Google Cloud Memorystore (Redis) instance.
     -   **Provisioning**: The `scripts/create_vpc_connector.sh` script is provided to create and configure the necessary `argos-pos-vpc-connector`. This script must be run once to set up the required networking infrastructure in the GCP project before deploying the service.
