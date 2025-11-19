@@ -37,14 +37,26 @@ const VoiceInterface: React.FC = () => {
     }
   }, [currentMedia]);
 
-  useEffect(() => {
-    const ws = wsRef.current;
-    if (ws) {
-      ws.onopen = () => {
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setMediaStream(stream);
+      setIsRecording(true);
+
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
+
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws/live`;
+      const newWs = new WebSocket(wsUrl);
+      wsRef.current = newWs; // Assign to ref
+
+      newWs.onopen = () => {
         console.log('WebSocket connected');
       };
 
-      ws.onmessage = async (event) => {
+      newWs.onmessage = async (event) => {
         if (typeof event.data === 'string') {
           try {
             const message = JSON.parse(event.data);
@@ -64,7 +76,7 @@ const VoiceInterface: React.FC = () => {
         }
       };
 
-      ws.onclose = () => {
+      newWs.onclose = () => {
         console.log('WebSocket disconnected');
         setIsRecording(false);
         if (mediaStream) {
@@ -72,37 +84,20 @@ const VoiceInterface: React.FC = () => {
         }
       };
 
-      ws.onerror = (error) => {
+      newWs.onerror = (error) => {
         console.error('WebSocket error:', error);
         setIsRecording(false);
         if (mediaStream) {
           mediaStream.getTracks().forEach(track => track.stop());
         }
       };
-    }
-  }, [mediaStream, processAudioQueue, currentMedia]);
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setMediaStream(stream);
-      setIsRecording(true);
-
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
-
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws/live`;
-      const newWs = new WebSocket(wsUrl);
-      wsRef.current = newWs; // Assign to ref
-
+      
       processor.onaudioprocess = (event) => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) { // Use wsRef.current
           const input = event.inputBuffer.getChannelData(0);
           const pcm16 = new Int16Array(input.length);
           for (let i = 0; i < input.length; i++) {
-            pcm16[i] = Math.max(-1, Math.min(1, input[i])) * 0x7FFF;
+            pcm16[i] = Math.max(-1, Math..min(1, input[i])) * 0x7FFF;
           }
           wsRef.current.send(pcm16.buffer); // Use wsRef.current
         }

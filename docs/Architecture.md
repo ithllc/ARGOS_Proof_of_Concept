@@ -1,7 +1,7 @@
 # ARGOS POC Architecture
 
-**Document Version:** 1.1
-**Date:** November 15, 2025
+**Document Version:** 1.2
+**Date:** November 19, 2025
 
 ## 1. Overview
 
@@ -19,11 +19,10 @@ The system uses a dual-server architecture that separates production functionali
 | (Port 3000)             |      |  (main.py - Port 8000) |      |                         |
 | - CopilotKit UI         |      | - CopilotKit Endpoints |      | - Coordinator Agent     |
 | - Voice Interface       |      | - /copilotkit/*        |      | - Research Agent        |
-| - Chat Interface        |      | - /api/* endpoints     |      | - Planning Agent        |
-| - Dashboard             |      | - /ws/live WebSocket   |      | - Analysis Agent        |
+| - Agent Activity Log    |      | - /api/* endpoints     |      | - Planning Agent        |
+|                         |      | - /ws/live WebSocket   |      | - Analysis Agent        |
 |                         |      | - /ws/events WebSocket |      +-------------------------+
-+-------------------------+      | - /ws/{id} WebSocket   |
-                                 +------------------------+               |
++-------------------------+      +------------------------+               |
                                           |                               |
                                           |          +--------------------+
                                           |          |
@@ -46,167 +45,73 @@ The system uses a dual-server architecture that separates production functionali
 +-------------------------+               debugging ADK agents in isolation
 ```
 
-+-------------------------+
-|  ADK Debug Web UI       |
-|  (debug.py - Port 8001) |      [Development Only - Separate Server]
-|                         |
-| - Agent Testing         |      Access: http://localhost:8001
-| - Interactive Debugging |
-| - ADK Built-in UI       |      Purpose: Developer tool for testing and
-+-------------------------+               debugging ADK agents in isolation
-```
-
 ## 3. Core Components
 
 ### 3.1. Configuration (`src/config.py`)
 -   **Purpose**: To centralize and manage environment variables and secrets for both local and cloud deployments.
 -   **Responsibilities**:
-    -   Uses the `python-dotenv` library to automatically find and load the `.env` file from the project root (`ARGOS_Proof_of_Concept/.env`) when running locally.
-    -   When running in Google Cloud (e.g., Cloud Run or Cloud Functions) the module loads secrets from **Google Secret Manager** rather than relying on a local `.env` file.
-    -   Resolves the GCP project id using the following order of precedence:
-        1. `GOOGLE_CLOUD_PROJECT` environment variable (explicit override)
-        2. Application Default Credentials (ADC) via `google.auth.default()`
-        3. Google Cloud metadata server at `http://metadata.google.internal/computeMetadata/v1/project/project-id` (Cloud Run/GCE fallback)
-      -  The module avoids calling `gcloud` via subprocess to determine the project id, which makes it safe for remote runtime environments where `gcloud` is not present.
-    -   When a project id is resolved, the module sets `os.environ["GOOGLE_CLOUD_PROJECT"]` so downstream components can rely on it.
-    -   Loads specific secrets from Secret Manager and maps them into conventional environment variables for the app:
-        - `ARGOS_GOOGLE_API_KEY` -> `GOOGLE_API_KEY`
-        - `ARGOS_REDIS_HOST` -> `REDIS_HOST`
-        - `ARGOS_REDIS_PORT` -> `REDIS_PORT`
-        - `ARGOS_TAVILY_API_KEY` -> `TAVILY_API_KEY`
-    -   Logs informative messages describing which resolution method was used (ADC, metadata), warns when secrets cannot be loaded, and fails gracefully — it does not crash if secrets cannot be determined.
-    -   Designed to be imported at the top of key scripts so environment variables and secrets are set before other modules need them.
-    -   Security note: the Cloud Run service account should be granted Secret Manager access for this to work; otherwise secrets will not be retrieved and warnings will be logged.
+    -   Uses `python-dotenv` to load a `.env` file for local development.
+    -   In Google Cloud, loads secrets from **Google Secret Manager**.
+    -   Resolves the GCP project ID automatically.
+    -   Fails gracefully if secrets cannot be loaded.
 
 ### 3.2. FastAPI Gateway (`src/main.py`)
 -   **Purpose**: Serves as the primary entry point for the production application.
 -   **Responsibilities**:
-    -   Provides RESTful API endpoints for task decomposition, paper retrieval, and status monitoring.
+    -   Provides RESTful API endpoints (`/api/*`).
+    -   Integrates CopilotKit endpoints (`/copilotkit/*`).
     -   Manages WebSocket connections for real-time communication:
         -   `/ws/live`: For real-time voice interaction.
         -   `/ws/events`: For broadcasting agent activity from the Redis `agent:activity` channel to the frontend.
-        -   `/ws/{client_id}`: A general-purpose WebSocket endpoint.
-    -   Integrates CopilotKit (AG-UI) endpoints to expose selected ADK agents at `/copilotkit/*`.
-    -   Manages the underlying API endpoints required for the ADK framework to operate (but does not use `get_fast_api_app` in production mode).
-    -   Includes a dedicated WebSocket endpoint (`/ws/live`) for real-time voice interaction with the ADK Live protocol.
 
 ### 3.3. Redis (`src/redis_client.py`)
--   **Purpose**: Acts as the central nervous system for the entire application. It is used for messaging, state management, and caching.
--   **Robustness**: The client is designed to handle connection errors gracefully during initialization, ensuring the application can start even if Redis is temporarily unreachable.
--   **Cloud Deployment**: For Cloud Run deployments, a Serverless VPC Access Connector is required to enable connectivity to private Redis instances (e.g., Google Cloud Memorystore) within a VPC network.
--   **Data Structures Used**:
-    -   **Lists**: For creating FIFO (First-In, First-Out) task queues (e.g., `tasks:research`).
-    -   **Hashes**: To store detailed state information for each task (`task:<id>`) and the content of parsed papers (`paper:<id>`).
-    -   **Pub/Sub**: For broadcasting real-time notifications about agent activity (`agent:activity`), allowing the frontend and other components to listen for events.
-    -   **Strings with TTL**: For caching synthesis and analysis results.
+-   **Purpose**: Acts as the central nervous system for messaging, state management, and caching.
+-   **Cloud Deployment**: Requires a Serverless VPC Access Connector for use with Google Cloud Memorystore.
+-   **Data Structures Used**: Lists (Task Queues), Hashes (State), Pub/Sub (Notifications), and Strings (Caching).
 
 ### 3.4. Voice Handler (`src/voice_handler.py`)
--   **Purpose**: Manages real-time audio streaming and interaction with Google Cloud Speech-to-Text (STT) and Text-to-Speech (TTS) APIs, and facilitates communication with the `CoordinatorAgent` via Redis.
+-   **Purpose**: Manages real-time audio streaming and interaction with Google Cloud Speech-to-Text (STT) and Text-to-Speech (TTS).
 -   **Responsibilities**:
-    -   Receives audio chunks from the frontend via the `/ws/live` WebSocket.
-    -   Streams audio to Google Cloud STT for transcription using the asynchronous `SpeechAsyncClient`.
-    -   Publishes transcribed text to a dedicated Redis queue (`tasks:coordinator_voice_input`) for the `CoordinatorAgent`.
-    -   Subscribes to a Redis Pub/Sub channel (`session:<id>:response`) to receive text and multi-modal responses from the `CoordinatorAgent`.
-    -   Streams text from the `CoordinatorAgent` (via Redis) to Google Cloud TTS for audio synthesis.
-    -   Sends synthesized audio and multi-modal content URLs back to the frontend via the WebSocket.
+    -   Receives audio from the frontend via `/ws/live`.
+    -   Uses `SpeechAsyncClient` to stream audio to Google Cloud STT for transcription.
+    -   Publishes transcribed text to a Redis queue for the `CoordinatorAgent`.
+    -   Subscribes to a Redis channel to receive responses from the `CoordinatorAgent`.
+    -   Streams synthesized audio and multi-modal content back to the frontend.
 
 ### 3.5. Multi-Modal Tools (`src/multi_modal_tools.py`)
--   **Purpose**: Provides `FunctionTool`s for generating images and videos using Google Cloud AI Platform models.
+-   **Purpose**: Provides tools for generating images and videos.
 -   **Responsibilities**:
-    -   `generate_architecture_image`: Takes a textual description and calls Imagen 3 to generate an image.
-    -   `generate_example_video`: Takes a textual description and calls Veo to generate a video.
-    -   Returns URLs of the generated media.
+    -   `generate_architecture_image`: Calls Imagen 3.
+    -   `generate_example_video`: Calls Veo.
 
 ### 3.6. Agents (`src/agents/`)
+-   **Coordinator Agent**: Decomposes user queries and orchestrates responses. Uses DSPy for intelligent task breakdown.
+-   **Research Agent**: Executes web searches (Tavily) and parses papers.
+-   **Planning Agent**: Synthesizes information from multiple documents.
+-   **Analysis Agent**: Assesses the feasibility of synthesized concepts.
 
-The system is composed of specialized agents that perform distinct functions.
+## 4. Frontend (`frontend/`)
 
-#### a. Coordinator Agent (`coordinator.py`)
--   **Trigger**: Receives a high-level query from the user via the FastAPI gateway, or processes voice input tasks pulled from the `tasks:coordinator_voice_input` Redis queue (pushed by the `VoiceHandler`).
--   **Function**: Its primary role is **task decomposition** and orchestrating responses, including multi-modal outputs. It uses a dedicated `process_voice_input` tool to handle voice-originated requests.
--   **Tooling**: It uses **DSPy** with a Google Gemini model to intelligently break down a complex query into a series of simple, actionable search tasks. It also leverages `FunctionTool`s for multi-modal generation (Imagen 3 for images, Veo for videos). If DSPy is unavailable (e.g., no API key), it falls back to a heuristic-based method for task decomposition.
--   **Output**: Pushes the decomposed tasks into the `tasks:research` queue in Redis, or directly invokes multi-modal tools and publishes their results (text and/or media URLs) back to the `VoiceHandler` via a Redis Pub/Sub channel (`session:<id>:response`).
-
-#### b. Research Agent (`research.py`)
--   **Trigger**: Listens for and pulls tasks from the `tasks:research` Redis queue.
--   **Function**: Executes web searches and extracts content from research papers.
--   **Tooling**:
-    -   **Tavily (via MCP)**: The agent communicates with a `TavilyMCP` server, which is a Node.js application that wraps the `tavily-python` library. A dedicated Python client (`src/mcp_client.py`) manages this server as a subprocess and communicates with it over `stdio`, making the interaction seamless and language-agnostic. This adheres to the Model Context Protocol (MCP) for standardized tool interaction.
-    -   **Paper Parser** (`paper_parser.py`): To extract text from URLs, supporting both HTML pages and PDF documents.
--   **Output**: Stores the extracted text and metadata in Redis Hashes (`paper:<id>`) and updates the task's state to `COMPLETED`.
-
-#### c. Planning Agent (`planning.py`)
--   **Trigger**: Can be invoked after the `ResearchAgent` has processed one or more papers.
--   **Function**: Synthesizes information from multiple documents to find conceptual overlaps and potential applications.
--   **Tooling**: Uses a custom keyword analysis algorithm. It identifies words that appear in multiple documents (excluding common English "stop words") and ranks them by overall frequency to find the most relevant overlapping terms. This approach replaced an earlier implementation that used TF-IDF, as it proved more robust for the short and varied texts encountered.
--   **Output**: Stores a synthesis report (including concept overlap, a feasibility score, and example applications) in Redis.
-
-#### d. Analysis Agent (`analysis.py`)
--   **Trigger**: Can be invoked after the `PlanningAgent` has created a synthesis.
--   **Function**: Assesses the overall feasibility and potential of the synthesized concepts.
--   **Tooling**: Uses **DSPy** with a local Ollama model to generate a structured analysis (strengths, weaknesses, opportunities) based on the synthesis report.
--   **Output**: Produces a final analysis report, stored in Redis.
-
-## 5. Frontend (`frontend/`)
-
--   **Framework**: React, integrated with **CopilotKit** for agent interaction.
--   **Purpose**: Provides a user-friendly interface for interacting with the agent system. It is now built into static assets as part of the Docker image and served directly by the FastAPI application within the same Cloud Run service.
--   **Access**: 
-    -   **Development**: `http://localhost:3000` (runs via `npm start`)
-    -   **Production**: Served directly by the Cloud Run service (e.g., `https://your-cloud-run-url.run.app`)
--   **Connection**: Connects to the FastAPI Gateway (port 8000) via CopilotKit endpoints at `/copilotkit/*`
+-   **Framework**: React, integrated with **CopilotKit**.
+-   **Purpose**: Provides the user interface, which is now served as static assets directly by the FastAPI application.
 -   **Key Features**:
-    -   **Chat Interface**: Submit queries and interact with the Coordinator Agent through a conversational UI powered by CopilotKit.
-    -   **Real-time Dashboard**: Monitors the status and activity of each agent by connecting to the `/ws/events` WebSocket, which streams messages from the Redis `agent:activity` pub/sub channel.
-    -   **Paper Visualization**: Components to visualize the results of paper analysis and synthesis.
-    -   **Voice Interface (`VoiceInterface.tsx`)**: Real-time voice interaction component enabling microphone input, audio playback, and dynamic display of generated multi-modal content (images, videos) from the agents. The WebSocket connection URL is now determined dynamically, and its state is managed with `useRef` to prevent race conditions.
--   **Technology Stack**:
-    -   React 18.2+
-    -   CopilotKit UI components (`@copilotkit/react-core`, `@copilotkit/react-ui`)
-    -   TypeScript for type safety
-    -   WebSocket for real-time communication
+    -   **Chat Interface**: Conversational UI powered by CopilotKit.
+    -   **Agent Activity Log (`AgentStatus.tsx`)**: A real-time dashboard that monitors agent activity by connecting to the `/ws/events` WebSocket.
+    -   **Voice Interface (`VoiceInterface.tsx`)**: Real-time voice component. The WebSocket connection URL is now determined dynamically, and its state is managed with `useRef` to prevent race conditions.
+-   **Build Fix**: The file `AgentStatus.jsx` was renamed to `AgentStatus.tsx` to fix a build failure caused by using TypeScript syntax in a `.jsx` file.
 
-## 6. ADK Debug Web UI (`src/debug.py`)
+## 5. ADK Debug Web UI (`src/debug.py`)
 
--   **Purpose**: A development-only tool for testing, debugging, and interacting with ADK agents in isolation.
--   **Framework**: Uses Google ADK's built-in web UI (`get_fast_api_app` with `web=True`).
--   **Access**: 
-    -   **URL**: `http://localhost:8001`
-    -   **Start Command**: `python -m src.debug` (from the `ARGOS_Proof_of_Concept` directory)
--   **Use Cases**:
-    -   **Agent Development**: Test individual agents during development without running the full production stack.
-    -   **Interactive Debugging**: Directly invoke agent tools and observe their behavior in real-time.
-    -   **Agent Discovery**: Automatically loads and displays all ADK-compatible agents from `src/agents/`.
-    -   **Rapid Prototyping**: Quickly test agent responses and tool integrations without frontend dependencies.
--   **Key Features**:
-    -   Built-in chat interface for interacting with each agent
-    -   Tool execution visualization
-    -   Agent state inspection
-    -   Request/response logging
--   **Important Notes**:
-    -   This is a **development-only** tool and should **not** be deployed to production.
-    -   Runs on a separate port (8001) to avoid conflicts with the production API (port 8000).
-    -   Can run simultaneously with the main application for side-by-side testing.
-    -   Does not include the CopilotKit integration or frontend UI components.
+-   **Purpose**: A development-only tool for testing and debugging ADK agents in isolation.
+-   **Framework**: Uses Google ADK's built-in web UI.
+-   **Access**: `http://localhost:8001`
 
-## 7. Local Development and Testing
+## 6. Local Development and Testing
 
--   **Environment Management**: A central `config.py` module loads environment variables from a `.env` file, making configuration straightforward.
--   **Virtual Environment**: All Python dependencies are managed via a `.venv` virtual environment and a `pyproject.toml` file.
--   **Unit Testing**: A comprehensive unit test suite is maintained in the `tests/` directory, using Python's `unittest` framework.
-    -   **Mocking**: All external dependencies (Redis, MCP clients, LLMs) are mocked using `unittest.mock` and a custom `MockRedisClient`, allowing for fast, isolated, and reliable local testing.
-    -   **Test Runner**: A `run_tests.sh` script is provided to execute the entire test suite, ensuring the correct Python path and environment are used.
-    -   **Test Plans**: Detailed test plans and results are documented in `tests/docs/`.
+-   **Environment**: Managed via a `.env` file and `pyproject.toml`.
+-   **Unit Testing**: Uses Python's `unittest` framework with extensive mocking of external services.
 
-## 8. Cloud Deployment and Infrastructure
+## 7. Cloud Deployment and Infrastructure
 
-This section outlines the key components for deploying the ARGOS POC to Google Cloud.
-
--   **Continuous Deployment**: The `cloudbuild.yaml` file defines the continuous integration and deployment (CI/CD) pipeline using Google Cloud Build. It automates the process of building the Docker container, pushing it to the Artifact Registry, and deploying it to Cloud Run.
-    -   **Multi-Stage Docker Build**: The `Dockerfile` now includes a multi-stage build process where the frontend (React) is built into static assets in a Node.js stage, and these assets are then copied into the final Python application image to be served by FastAPI.
-
--   **VPC Connectivity**: The Cloud Run service requires a Serverless VPC Access Connector to communicate with private resources like the Google Cloud Memorystore (Redis) instance.
-    -   **Provisioning**: The `scripts/create_vpc_connector.sh` script is provided to create and configure the necessary `argos-pos-vpc-connector`. This script must be run once to set up the required networking infrastructure in the GCP project before deploying the service.
-    -   **Configuration**: The `cloudbuild.yaml` file is configured to use this connector, ensuring the Cloud Run service has the necessary network access.
-````
-
+-   **CI/CD**: A `cloudbuild.yaml` file defines the pipeline for building the Docker container and deploying to Cloud Run.
+-   **VPC Connectivity**: A Serverless VPC Access Connector is required for Cloud Run to communicate with Google Cloud Memorystore.

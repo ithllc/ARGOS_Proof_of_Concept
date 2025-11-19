@@ -142,7 +142,6 @@ async def websocket_events_endpoint(websocket: WebSocket):
             pubsub.close()
 
 
-
 # ==============================================================================
 # CopilotKit / AG-UI Integration for ADK Agents
 # ==============================================================================
