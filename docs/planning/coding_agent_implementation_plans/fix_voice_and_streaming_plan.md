@@ -32,8 +32,13 @@
 - **Backend:** Create a new WebSocket endpoint `/ws/events` in `main.py`. This endpoint will subscribe to the Redis `agent:activity` channel and stream all messages to connected clients.
 - **Frontend:** 
     - Update `AgentStatus.jsx` to connect to `/ws/events` and display a real-time log of agent activities.
+    - Rename `AgentStatus.jsx` to `AgentStatus.tsx` to support TypeScript syntax.
     - Integrate `<AgentStatus />` into `App.tsx` so it is visible alongside the Voice and Chat interfaces.
     - (Optional) Update `VoiceHandler` to also forward transcription events to the frontend via the existing voice WebSocket for immediate feedback.
+
+### 3. Verification
+- Instruct the coding agent to perform syntax verification by running the build command locally before deployment.
+- **Important:** To avoid polluting the local codebase, the verification step must clean up the `build` directory immediately after running.
 
 ## Step-by-Step Implementation Plan
 
@@ -53,14 +58,28 @@
 - Change WebSocket URL to use `window.location.protocol` and `window.location.host`.
 - Use `useRef` for the WebSocket instance to ensure `onaudioprocess` always accesses the current active socket.
 - Add error handling to log WebSocket connection failures clearly.
+- **Fix Typo:** Correct `Math..min` to `Math.min`.
 
 ### Step 4: Implement Agent Status & Integrate
-**File:** `frontend/src/AgentStatus.jsx`
-- Implement WebSocket connection to `/ws/events`.
+**File:** `frontend/src/AgentStatus.jsx` -> `frontend/src/AgentStatus.tsx`
+- Rename `AgentStatus.jsx` to `AgentStatus.tsx`.
+- Ensure the content is valid TypeScript/React code.
+- Connect to `/ws/events` (dynamically determined URL like VoiceInterface).
 - Render a list of events (Agent, Status, Details).
 
 **File:** `frontend/src/App.tsx`
 - Import and add `<AgentStatus />` to the main layout.
+
+### Step 5: Syntax Verification (Safe Mode)
+- **Backup:** Copy `package.json` to `package.json.bak` to preserve the Cloud-compatible dependencies.
+- Run `npm install` to ensure dependencies are available (required for build).
+- Run `npm run build` in the `frontend` directory to verify that the build succeeds and there are no syntax errors.
+- **CRITICAL CLEANUP:** 
+    - Delete the `build` directory.
+    - Delete the `node_modules` directory.
+    - Delete `package-lock.json`.
+    - Restore `package.json` from `package.json.bak` (overwrite the modified one).
+    - Delete `package.json.bak`.
 
 ## Redis Verification Instructions (for Human intervention only, skip and go straight to the "Prompts for Coding Agent" for your tasks)
 To verify events in Redis manually:
@@ -93,19 +112,34 @@ Update `src/main.py` to add a real-time event streaming endpoint.
 
 ### Prompt 3: Fix Frontend Voice Interface
 ```text
-Update `frontend/src/VoiceInterface.tsx` to fix WebSocket connection issues.
+Update `frontend/src/VoiceInterface.tsx` to fix WebSocket connection issues and a syntax error.
 1. Remove the hardcoded `ws://localhost:8000` URL. Construct the URL dynamically: `const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'; const wsUrl = \`\${protocol}//\${window.location.host}/ws/live\`;`.
 2. Use a `useRef` to store the WebSocket instance (`wsRef`) instead of just state, or ensure the `onaudioprocess` callback uses the ref to access the active socket.
 3. In `startRecording`, initialize the WebSocket and assign it to the ref.
 4. In `onaudioprocess`, check `wsRef.current && wsRef.current.readyState === WebSocket.OPEN` before sending data.
 5. Ensure `stopRecording` closes the socket and cleans up refs.
+6. **CRITICAL:** Fix the typo on line 100 (or nearby): change `Math..min` to `Math.min`.
 ```
 
 ### Prompt 4: Implement Agent Status & Integrate
 ```text
-1. Rewrite `frontend/src/AgentStatus.jsx` to be a functional component that:
+1. Rename `frontend/src/AgentStatus.jsx` to `frontend/src/AgentStatus.tsx`.
+2. Rewrite `frontend/src/AgentStatus.tsx` to be a functional component that:
    - Connects to `/ws/events` (dynamically determined URL like VoiceInterface).
    - Maintains a list of received events in state.
    - Renders these events in a scrollable list, showing timestamp, agent name, and status.
-2. Update `frontend/src/App.tsx` to import `AgentStatus` and render it. Place it inside the `<main>` tag, perhaps above or below the `VoiceInterface`.
+   - Ensure all TypeScript types are correctly defined (e.g., `AgentEvent` interface).
+3. Update `frontend/src/App.tsx` to import `AgentStatus` and render it. Place it inside the `<main>` tag, perhaps above or below the `VoiceInterface`.
+```
+
+### Prompt 5: Syntax Verification (Safe Mode)
+```text
+Run the following commands to verify the frontend build and check for syntax errors, then clean up:
+cd frontend
+cp package.json package.json.bak
+npm install
+npm run build
+rm -rf build node_modules package-lock.json
+mv package.json.bak package.json
+If the build fails, analyze the error and fix the code until it passes.
 ```
