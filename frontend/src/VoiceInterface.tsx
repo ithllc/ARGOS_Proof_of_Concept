@@ -97,7 +97,7 @@ const VoiceInterface: React.FC = () => {
           const input = event.inputBuffer.getChannelData(0);
           const pcm16 = new Int16Array(input.length);
           for (let i = 0; i < input.length; i++) {
-            pcm16[i] = Math.max(-1, Math..min(1, input[i])) * 0x7FFF;
+            pcm16[i] = Math.max(-1, Math.min(1, input[i])) * 0x7FFF;
           }
           wsRef.current.send(pcm16.buffer); // Use wsRef.current
         }
