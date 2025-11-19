@@ -7,7 +7,7 @@ import VoiceInterface from './VoiceInterface';
 function App() {
   return (
     <CopilotKit 
-      runtimeUrl="http://localhost:8000/copilotkit"
+      runtimeUrl="/copilotkit"
       agent="coordinator"
     >
       <div className="App">
