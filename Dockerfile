@@ -5,7 +5,7 @@ WORKDIR /app/frontend
 
 COPY frontend/package.json ./
 RUN npm install --legacy-peer-deps
-COPY frontend/ .
+COPY frontend/. .
 RUN npm run build
 
 # Stage 2: Build the Python application
