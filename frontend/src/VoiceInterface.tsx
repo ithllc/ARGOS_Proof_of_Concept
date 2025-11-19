@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 
 const VoiceInterface: React.FC = () => {
   const [isRecording, setIsRecording] = useState<boolean>(false);
-  const [ws, setWs] = useState<WebSocket | null>(null);
+  const wsRef = useRef<WebSocket | null>(null); // Use useRef for WebSocket instance
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioQueueRef = useRef<Array<ArrayBuffer>>([]);
@@ -38,6 +38,7 @@ const VoiceInterface: React.FC = () => {
   }, [currentMedia]);
 
   useEffect(() => {
+    const ws = wsRef.current;
     if (ws) {
       ws.onopen = () => {
         console.log('WebSocket connected');
@@ -79,7 +80,7 @@ const VoiceInterface: React.FC = () => {
         }
       };
     }
-  }, [ws, mediaStream, processAudioQueue, currentMedia]);
+  }, [mediaStream, processAudioQueue, currentMedia]);
 
   const startRecording = async () => {
     try {
@@ -91,22 +92,24 @@ const VoiceInterface: React.FC = () => {
       const source = audioContextRef.current.createMediaStreamSource(stream);
       const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
 
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws/live`;
+      const newWs = new WebSocket(wsUrl);
+      wsRef.current = newWs; // Assign to ref
+
       processor.onaudioprocess = (event) => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) { // Use wsRef.current
           const input = event.inputBuffer.getChannelData(0);
           const pcm16 = new Int16Array(input.length);
           for (let i = 0; i < input.length; i++) {
             pcm16[i] = Math.max(-1, Math.min(1, input[i])) * 0x7FFF;
           }
-          ws.send(pcm16.buffer);
+          wsRef.current.send(pcm16.buffer); // Use wsRef.current
         }
       };
 
       source.connect(processor);
       processor.connect(audioContextRef.current.destination);
-
-      const newWs = new WebSocket('ws://localhost:8000/ws/live'); // Adjust WebSocket URL as needed
-      setWs(newWs);
 
     } catch (error) {
       console.error('Error accessing microphone:', error);
@@ -115,9 +118,9 @@ const VoiceInterface: React.FC = () => {
   };
 
   const stopRecording = () => {
-    if (ws) {
-      ws.close();
-      setWs(null);
+    if (wsRef.current) { // Use wsRef.current
+      wsRef.current.close(); // Use wsRef.current
+      wsRef.current = null; // Clean up ref
     }
     if (mediaStream) {
       mediaStream.getTracks().forEach(track => track.stop());

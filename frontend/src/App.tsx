@@ -3,6 +3,7 @@ import { CopilotKit } from '@copilotkit/react-core';
 import { CopilotSidebar } from '@copilotkit/react-ui';
 import '@copilotkit/react-ui/styles.css';
 import VoiceInterface from './VoiceInterface';
+import AgentStatus from './AgentStatus'; // Import AgentStatus
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         </header>
         <main>
           <VoiceInterface />
+          <AgentStatus /> {/* Add AgentStatus component */}
           <CopilotSidebar
             labels={{
               title: "ARGOS Assistant",

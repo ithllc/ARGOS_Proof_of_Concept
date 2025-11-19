@@ -3,7 +3,8 @@ import json
 import os
 import uuid
 
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
+from google.cloud.speech_v1p1beta1 import SpeechAsyncClient
 from google.cloud import speech_v1p1beta1 as speech
 from google.cloud import texttospeech_v1 as tts
 
@@ -12,7 +13,7 @@ from redis_client import redis_client
 class VoiceHandler:
     def __init__(self, websocket: WebSocket):
         self.websocket = websocket
-        self.speech_client = speech.SpeechClient()
+        self.speech_client = SpeechAsyncClient()
         self.tts_client = tts.TextToSpeechClient()
         self.audio_stream = None
         self.stt_config = speech.RecognitionConfig(
@@ -53,19 +54,25 @@ class VoiceHandler:
                             "text": response_text
                         }))
 
-    async def handle_audio_stream(self):
-        self.audio_stream = self.speech_client.streaming_recognize(
-            config=self.streaming_config,
-            requests=(
-                speech.StreamingRecognizeRequest(audio_content=await self.websocket.receive_bytes())
-                for _ in iter(asyncio.Future().done, False) # Keep receiving until connection closes
-            ),
-        )
+    async def _request_generator(self):
+        try:
+            while True: # Keep receiving until WebSocketDisconnect
+                audio_chunk = await self.websocket.receive_bytes()
+                yield speech.StreamingRecognizeRequest(audio_content=audio_chunk)
+        except WebSocketDisconnect:
+            print("WebSocket disconnected.")
+            return
 
+    async def handle_audio_stream(self):
         self.tts_task = asyncio.create_task(self._listen_for_redis_responses())
 
         try:
-            async for response in self.audio_stream:
+            streaming_call = self.speech_client.streaming_recognize(
+                requests=self._request_generator(),
+                config=self.streaming_config,
+            )
+
+            async for response in streaming_call:
                 for result in response.results:
                     if result.is_final:
                         transcript = result.alternatives[0].transcript

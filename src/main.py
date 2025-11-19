@@ -2,6 +2,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Body
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import os
+import asyncio
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse # Import FileResponse
 
@@ -107,14 +108,39 @@ async def websocket_live_endpoint(websocket: WebSocket):
     await websocket.accept()
     voice_handler = VoiceHandler(websocket)
     try:
-        while True:
-            await voice_handler.handle_audio_stream()
+        await voice_handler.handle_audio_stream()
     except WebSocketDisconnect:
-        print("WebSocket disconnected")
+        print("WebSocket disconnected from /ws/live")
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        print(f"WebSocket error in /ws/live: {e}")
     finally:
         await voice_handler.close()
+
+
+@app.websocket("/ws/events")
+async def websocket_events_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    pubsub = None
+    try:
+        pubsub = redis_client.subscribe_to_channel("agent:activity")
+        if not pubsub:
+            await websocket.close(code=1011, reason="Could not connect to Redis Pub/Sub.")
+            return
+
+        while True:
+            # Check for new message without blocking
+            message = pubsub.get_message(ignore_subscribe_messages=True)
+            if message and 'data' in message:
+                await websocket.send_text(message['data'])
+            await asyncio.sleep(0.1)  # Prevent busy-waiting
+    except WebSocketDisconnect:
+        print("WebSocket disconnected from /ws/events")
+    except Exception as e:
+        print(f"WebSocket error in /ws/events: {e}")
+    finally:
+        if pubsub:
+            pubsub.close()
+
 
 
 # ==============================================================================

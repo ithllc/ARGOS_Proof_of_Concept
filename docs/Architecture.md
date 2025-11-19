@@ -21,7 +21,8 @@ The system uses a dual-server architecture that separates production functionali
 | - Voice Interface       |      | - /copilotkit/*        |      | - Research Agent        |
 | - Chat Interface        |      | - /api/* endpoints     |      | - Planning Agent        |
 | - Dashboard             |      | - /ws/live WebSocket   |      | - Analysis Agent        |
-+-------------------------+      | - /ws/{id} WebSocket   |      +-------------------------+
+|                         |      | - /ws/events WebSocket |      +-------------------------+
++-------------------------+      | - /ws/{id} WebSocket   |
                                  +------------------------+               |
                                           |                               |
                                           |          +--------------------+
@@ -81,7 +82,10 @@ The system uses a dual-server architecture that separates production functionali
 -   **Purpose**: Serves as the primary entry point for the production application.
 -   **Responsibilities**:
     -   Provides RESTful API endpoints for task decomposition, paper retrieval, and status monitoring.
-    -   Manages WebSocket connections for real-time communication (`/ws/{client_id}` and `/ws/live`).
+    -   Manages WebSocket connections for real-time communication:
+        -   `/ws/live`: For real-time voice interaction.
+        -   `/ws/events`: For broadcasting agent activity from the Redis `agent:activity` channel to the frontend.
+        -   `/ws/{client_id}`: A general-purpose WebSocket endpoint.
     -   Integrates CopilotKit (AG-UI) endpoints to expose selected ADK agents at `/copilotkit/*`.
     -   Manages the underlying API endpoints required for the ADK framework to operate (but does not use `get_fast_api_app` in production mode).
     -   Includes a dedicated WebSocket endpoint (`/ws/live`) for real-time voice interaction with the ADK Live protocol.
@@ -100,7 +104,7 @@ The system uses a dual-server architecture that separates production functionali
 -   **Purpose**: Manages real-time audio streaming and interaction with Google Cloud Speech-to-Text (STT) and Text-to-Speech (TTS) APIs, and facilitates communication with the `CoordinatorAgent` via Redis.
 -   **Responsibilities**:
     -   Receives audio chunks from the frontend via the `/ws/live` WebSocket.
-    -   Streams audio to Google Cloud STT for transcription.
+    -   Streams audio to Google Cloud STT for transcription using the asynchronous `SpeechAsyncClient`.
     -   Publishes transcribed text to a dedicated Redis queue (`tasks:coordinator_voice_input`) for the `CoordinatorAgent`.
     -   Subscribes to a Redis Pub/Sub channel (`session:<id>:response`) to receive text and multi-modal responses from the `CoordinatorAgent`.
     -   Streams text from the `CoordinatorAgent` (via Redis) to Google Cloud TTS for audio synthesis.
@@ -153,9 +157,9 @@ The system is composed of specialized agents that perform distinct functions.
 -   **Connection**: Connects to the FastAPI Gateway (port 8000) via CopilotKit endpoints at `/copilotkit/*`
 -   **Key Features**:
     -   **Chat Interface**: Submit queries and interact with the Coordinator Agent through a conversational UI powered by CopilotKit.
-    -   **Real-time Dashboard**: Monitor the status and activity of each agent by subscribing to the Redis `agent:activity` channel via WebSocket.
+    -   **Real-time Dashboard**: Monitors the status and activity of each agent by connecting to the `/ws/events` WebSocket, which streams messages from the Redis `agent:activity` pub/sub channel.
     -   **Paper Visualization**: Components to visualize the results of paper analysis and synthesis.
-    -   **Voice Interface (`VoiceInterface.tsx`)**: Real-time voice interaction component enabling microphone input, audio playback, and dynamic display of generated multi-modal content (images, videos) from the agents.
+    -   **Voice Interface (`VoiceInterface.tsx`)**: Real-time voice interaction component enabling microphone input, audio playback, and dynamic display of generated multi-modal content (images, videos) from the agents. The WebSocket connection URL is now determined dynamically, and its state is managed with `useRef` to prevent race conditions.
 -   **Technology Stack**:
     -   React 18.2+
     -   CopilotKit UI components (`@copilotkit/react-core`, `@copilotkit/react-ui`)
