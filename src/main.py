@@ -22,13 +22,14 @@ import json
 
 # Optional CopilotKit/AG-UI imports (install via pyproject.toml / pip if not already present)
 try:
-    from copilotkit.integrations.fastapi import add_fastapi_endpoint
+    from copilotkit.integrations.fastapi import add_fastapi_endpoint, handler as copilotkit_handler
     from copilotkit.sdk import CopilotKitRemoteEndpoint
     logger.info("Successfully imported CopilotKit.")
 except Exception as e:
     logger.error(f"CRITICAL: Failed to import CopilotKit: {e}")
     add_fastapi_endpoint = None
     CopilotKitRemoteEndpoint = None
+    copilotkit_handler = None
 
 try:
     from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
@@ -78,7 +79,8 @@ async def startup_event():
 # Add CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=[], # Clear explicit list to rely on regex
+    allow_origin_regex=".*", # Allow all origins regex (required for allow_credentials=True with wildcard)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -222,6 +224,15 @@ if add_fastapi_endpoint and CopilotKitRemoteEndpoint:
 
         sdk = CopilotKitRemoteEndpoint(agents=make_agents)
         add_fastapi_endpoint(app, sdk, "/copilotkit")
+        
+        # Workaround: Manually register the root path because add_fastapi_endpoint only registers subpaths
+        if copilotkit_handler:
+            @app.api_route("/copilotkit", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+            async def handle_copilotkit_root(request: Request):
+                # Inject 'path' into path_params so the handler works
+                request.scope["path_params"]["path"] = ""
+                return await copilotkit_handler(request, sdk)
+
         logger.info("CopilotKit endpoint registered at /copilotkit")
     except Exception as e:
         logger.error(f"Failed to register CopilotKit endpoints: {e}")
