@@ -8,7 +8,7 @@ authors = ["Your Name <you@example.com>"]
 python = "^3.10"
 google-adk = ">=0.1.0"
 ag_ui_adk = ">=0.1.0"
-copilotkit = { path = "../CoPilotKit/sdk-python", develop = true }
+copilotkit = ">=0.1.0"
 agent-starter-pack = ">=0.1.0"
 redis = ">=5.0.0"
 fastapi = ">=0.104.0"

@@ -4,7 +4,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Body
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import os
@@ -36,6 +36,15 @@ except Exception:
 
 app = FastAPI(title="ARGOS POC - Production API")
 
+# Middleware to log all requests
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"Request: {request.method} {request.url}")
+    logger.info(f"Headers: {request.headers}")
+    response = await call_next(request)
+    logger.info(f"Response status: {response.status_code}")
+    return response
+
 # Background worker for voice tasks
 async def voice_task_worker():
     logger.info("Starting voice task worker")
@@ -65,7 +74,8 @@ async def startup_event():
 # Add CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for POC to fix WebSocket 403
+    allow_origins=["*"],  # Allow all origins
+    allow_origin_regex=".*", # Allow all origins regex
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
