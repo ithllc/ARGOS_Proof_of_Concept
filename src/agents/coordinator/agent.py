@@ -1,6 +1,7 @@
 import json
 import os
 import uuid
+import logging
 from typing import List
 
 from google.adk.agents import LlmAgent
@@ -10,6 +11,8 @@ from multi_modal_tools import generate_architecture_image, generate_example_vide
 
 import dspy
 from redis_client import redis_client
+
+logger = logging.getLogger(__name__)
 
 class DecomposeQuery(dspy.Signature):
     """Decompose a complex research query into a series of simpler, actionable search tasks."""
@@ -21,6 +24,7 @@ class DecomposeQuery(dspy.Signature):
 
 def decompose_and_dispatch(query: str, session_id: str | None = None) -> List[str]:
     """Decompose a high-level user request into multiple search/parse tasks."""
+    logger.info(f"Decomposing query: {query}, session_id: {session_id}")
     tasks = []
     
     # DSPy logic
@@ -31,7 +35,8 @@ def decompose_and_dispatch(query: str, session_id: str | None = None) -> List[st
             llm = dspy.LM("gemini/gemini-1.5-flash-latest", api_key=api_key)
             dspy.settings.configure(lm=llm)
             dspy_enabled = True
-        except Exception:
+        except Exception as e:
+            logger.error(f"DSPy initialization failed: {e}")
             dspy_enabled = False
 
     if dspy_enabled:
@@ -39,10 +44,13 @@ def decompose_and_dispatch(query: str, session_id: str | None = None) -> List[st
             decompose_predictor = dspy.Predict(DecomposeQuery)
             result = decompose_predictor(query=query)
             tasks = json.loads(result.tasks)
-        except Exception:
+            logger.info(f"DSPy decomposed tasks: {tasks}")
+        except Exception as e:
+            logger.error(f"DSPy decomposition failed: {e}")
             dspy_enabled = False
 
     if not dspy_enabled:
+        logger.info("Using fallback decomposition logic")
         tasks = [
             query,
             f"{query} arXiv pdf",
@@ -69,32 +77,39 @@ def decompose_and_dispatch(query: str, session_id: str | None = None) -> List[st
             {"agent": "coordinator", "status": "dispatched", "tasks": pushed_task_ids}
         ),
     )
+    logger.info(f"Dispatched {len(pushed_task_ids)} tasks")
     return pushed_task_ids
 
 async def process_voice_input(query: str, session_id: str, response_channel: str):
     """Processes a voice input query, decides on action, and publishes response."""
+    logger.info(f"Processing voice input: {query}, session_id: {session_id}")
     response_data = {"type": "agent_response", "session_id": session_id}
 
     # Simple heuristic for demonstration:
     if "diagram" in query.lower() or "architecture image" in query.lower():
+        logger.info("Generating architecture image")
         image_url = await generate_architecture_image(query)
         response_data["text"] = "Here is the architecture image you requested."
         response_data["media_url"] = image_url
         response_data["media_type"] = "image"
     elif "video" in query.lower() or "example video" in query.lower():
+        logger.info("Generating example video")
         video_url = await generate_example_video(query)
         response_data["text"] = "Here is the video you requested."
         response_data["media_url"] = video_url
         response_data["media_type"] = "video"
     else:
         # Fallback to existing decomposition logic
+        logger.info("Delegating to decompose_and_dispatch")
         tasks = decompose_and_dispatch(query, session_id)
         response_data["text"] = f"I've decomposed your query into {len(tasks)} tasks."
         # In a real scenario, you might wait for research results before responding.
         # For now, just acknowledge the decomposition.
 
+    logger.info(f"Publishing response to {response_channel}")
     redis_client.publish_message(response_channel, json.dumps(response_data))
     return "Voice input processed."
+
 
 
 root_agent = LlmAgent(

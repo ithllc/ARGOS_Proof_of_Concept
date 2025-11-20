@@ -1,17 +1,24 @@
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Body
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import os
 import asyncio
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import FileResponse # Import FileResponse
+from starlette.responses import FileResponse
 
 # Ensure environment is loaded early
 import config
 
-from agents.coordinator.agent import decompose_and_dispatch
+from agents.coordinator.agent import decompose_and_dispatch, process_voice_input
 from redis_client import redis_client
 from voice_handler import VoiceHandler
+import json
 
 # Optional CopilotKit/AG-UI imports (install via pyproject.toml / pip if not already present)
 try:
@@ -29,10 +36,36 @@ except Exception:
 
 app = FastAPI(title="ARGOS POC - Production API")
 
+# Background worker for voice tasks
+async def voice_task_worker():
+    logger.info("Starting voice task worker")
+    while True:
+        try:
+            task_json = redis_client.pop_task("tasks:coordinator_voice_input")
+            if task_json:
+                logger.info(f"Processing voice task: {task_json}")
+                task = json.loads(task_json)
+                payload = task.get("payload", {})
+                query = payload.get("query")
+                session_id = payload.get("session_id")
+                response_channel = payload.get("response_channel")
+                
+                if query and session_id and response_channel:
+                    await process_voice_input(query, session_id, response_channel)
+            else:
+                await asyncio.sleep(0.1)
+        except Exception as e:
+            logger.error(f"Error in voice task worker: {e}")
+            await asyncio.sleep(1)
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(voice_task_worker())
+
 # Add CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],  # Allow all origins for POC to fix WebSocket 403
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,9 +79,11 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
+        logger.info(f"WebSocket connected: {websocket.client}")
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
+        logger.info(f"WebSocket disconnected: {websocket.client}")
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
         await websocket.send_text(message)
@@ -63,11 +98,13 @@ manager = ConnectionManager()
 
 @app.get("/api/health") # Renamed from "/" to "/api/health"
 async def read_root():
+    logger.info("Health check endpoint called")
     return {"message": "Mini-ARGOS POC is running"}
 
 
 @app.get("/status")
 async def get_status():
+    logger.info("Status endpoint called")
     return {"status": "ok"}
 
 
@@ -75,6 +112,7 @@ async def get_status():
 async def api_decompose(payload: dict = Body(...)):
     query = payload.get("query")
     session_id = payload.get("session_id")
+    logger.info(f"Decompose API called with query: {query}, session_id: {session_id}")
 
     task_ids = decompose_and_dispatch(query, session_id=session_id)
     return {"tasks": task_ids}
@@ -82,6 +120,7 @@ async def api_decompose(payload: dict = Body(...)):
 
 @app.get("/api/papers")
 async def get_papers():
+    logger.info("Get papers endpoint called")
     keys = redis_client.client.keys("paper:*")[:20]
     papers = []
     for k in keys:
@@ -105,25 +144,30 @@ async def websocket_endpoint(websocket: WebSocket, client_id: int):
 
 @app.websocket("/ws/live")
 async def websocket_live_endpoint(websocket: WebSocket):
+    logger.info("New connection attempt to /ws/live")
     await websocket.accept()
+    logger.info("Connection accepted for /ws/live")
     voice_handler = VoiceHandler(websocket)
     try:
         await voice_handler.handle_audio_stream()
     except WebSocketDisconnect:
-        print("WebSocket disconnected from /ws/live")
+        logger.info("WebSocket disconnected from /ws/live")
     except Exception as e:
-        print(f"WebSocket error in /ws/live: {e}")
+        logger.error(f"WebSocket error in /ws/live: {e}")
     finally:
         await voice_handler.close()
 
 
 @app.websocket("/ws/events")
 async def websocket_events_endpoint(websocket: WebSocket):
+    logger.info("New connection attempt to /ws/events")
     await websocket.accept()
+    logger.info("Connection accepted for /ws/events")
     pubsub = None
     try:
         pubsub = redis_client.subscribe_to_channel("agent:activity")
         if not pubsub:
+            logger.error("Could not connect to Redis Pub/Sub")
             await websocket.close(code=1011, reason="Could not connect to Redis Pub/Sub.")
             return
 
@@ -131,12 +175,13 @@ async def websocket_events_endpoint(websocket: WebSocket):
             # Check for new message without blocking
             message = pubsub.get_message(ignore_subscribe_messages=True)
             if message and 'data' in message:
+                logger.info(f"Broadcasting event: {message['data']}")
                 await websocket.send_text(message['data'])
             await asyncio.sleep(0.1)  # Prevent busy-waiting
     except WebSocketDisconnect:
-        print("WebSocket disconnected from /ws/events")
+        logger.info("WebSocket disconnected from /ws/events")
     except Exception as e:
-        print(f"WebSocket error in /ws/events: {e}")
+        logger.error(f"WebSocket error in /ws/events: {e}")
     finally:
         if pubsub:
             pubsub.close()
