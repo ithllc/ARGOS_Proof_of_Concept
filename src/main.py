@@ -241,6 +241,7 @@ async def websocket_events_endpoint(websocket: WebSocket):
 
 
 # AG-UI ADK integration (optional)
+# Triggering deployment for ADK fix
 if ADKAgent and add_adk_fastapi_endpoint:
     try:
         from agents.coordinator.agent import root_agent as coordinator_adk_agent
