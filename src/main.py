@@ -24,13 +24,15 @@ import json
 try:
     from copilotkit.integrations.fastapi import add_fastapi_endpoint
     from copilotkit.sdk import CopilotKitRemoteEndpoint
-except Exception:
+except Exception as e:
+    logger.error(f"CRITICAL: Failed to import CopilotKit: {e}")
     add_fastapi_endpoint = None
     CopilotKitRemoteEndpoint = None
 
 try:
     from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
-except Exception:
+except Exception as e:
+    logger.error(f"CRITICAL: Failed to import AG-UI ADK: {e}")
     ADKAgent = None
     add_adk_fastapi_endpoint = None
 
