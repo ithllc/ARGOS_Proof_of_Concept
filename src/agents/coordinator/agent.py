@@ -114,6 +114,7 @@ async def process_voice_input(query: str, session_id: str, response_channel: str
 
 root_agent = LlmAgent(
     name="coordinator",
+    model="gemini-2.5-pro",
     instruction="You are the coordinator agent. Your job is to decompose a user's query into a series of search tasks, or generate multi-modal content if requested.",
     tools=[
         # Decomposes a complex research query into a series of simpler, actionable search tasks.

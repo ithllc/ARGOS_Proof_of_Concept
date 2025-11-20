@@ -59,6 +59,7 @@ def synthesize(paper_ids: List[str], synthesis_key: str | None = None) -> dict:
 
 root_agent = LlmAgent(
     name="planning",
+    model="gemini-2.5-pro",
     instruction="You are a planning agent. You can synthesize concepts from a list of papers.",
     tools=[
         # Synthesizes concepts from a list of parsed papers.

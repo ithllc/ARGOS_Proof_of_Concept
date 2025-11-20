@@ -18,9 +18,9 @@ The system uses a dual-server architecture that separates production functionali
 |   React Frontend UI     |----->|  FastAPI Gateway       |----->| ADK Agent System        |
 | (Port 3000)             |      |  (main.py - Port 8000) |      |                         |
 | - CopilotKit UI         |      | - CopilotKit Endpoints |      | - Coordinator Agent     |
-| - Voice Interface       |      | - /copilotkit/*        |      | - Research Agent        |
-| - Agent Activity Log    |      | - /api/* endpoints     |      | - Planning Agent        |
-|                         |      | - /ws/live WebSocket   |      | - Analysis Agent        |
+| - Research Dashboard    |      | - /copilotkit/*        |      | - Research Agent        |
+| - Voice Interface       |      | - /api/* endpoints     |      | - Planning Agent        |
+| - Agent Activity Log    |      | - /ws/live WebSocket   |      | - Analysis Agent        |
 |                         |      | - /ws/events WebSocket |      +-------------------------+
 +-------------------------+      +------------------------+               |
                                           |                               |
@@ -85,17 +85,18 @@ The system uses a dual-server architecture that separates production functionali
     -   `generate_example_video`: Calls Veo.
 
 ### 3.6. Agents (`src/agents/`)
--   **Coordinator Agent**: Decomposes user queries and orchestrates responses. Uses DSPy for intelligent task breakdown.
--   **Research Agent**: Executes web searches (Tavily) and parses papers.
--   **Planning Agent**: Synthesizes information from multiple documents.
--   **Analysis Agent**: Assesses the feasibility of synthesized concepts.
+-   **Coordinator Agent**: Decomposes user queries and orchestrates responses. Uses the **Shared State** pattern to sync research progress with the frontend. Powered by **Gemini 2.5 Pro**.
+-   **Research Agent**: Executes web searches (Tavily) and parses papers. Powered by **Gemini 2.5 Flash**.
+-   **Planning Agent**: Synthesizes information from multiple documents. Powered by **Gemini 2.5 Pro**.
+-   **Analysis Agent**: Assesses the feasibility of synthesized concepts. Powered by **Gemini 2.5 Flash**.
 
 ## 4. Frontend (`frontend/`)
 
 -   **Framework**: React, integrated with **CopilotKit**.
 -   **Purpose**: Provides the user interface, which is now served as static assets directly by the FastAPI application.
 -   **Key Features**:
-    -   **Chat Interface**: Conversational UI powered by CopilotKit.
+    -   **Research Dashboard (`ResearchDashboard.tsx`)**: The primary interface implementing the **Shared State UI** pattern. It syncs real-time research state (tasks, papers, analysis) with the backend using `useCoAgent`.
+    -   **Chat Interface**: Conversational UI powered by CopilotKit sidebar.
     -   **Agent Activity Log (`AgentStatus.tsx`)**: A real-time dashboard that monitors agent activity by connecting to the `/ws/events` WebSocket.
     -   **Voice Interface (`VoiceInterface.tsx`)**: Real-time voice component. The WebSocket connection URL is now determined dynamically, and its state is managed with `useRef` to prevent race conditions.
 -   **Build Fix**: The file `AgentStatus.jsx` was renamed to `AgentStatus.tsx` to fix a build failure caused by using TypeScript syntax in a `.jsx` file.
