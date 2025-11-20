@@ -14,6 +14,7 @@ from google.genai import types
 from multi_modal_tools import generate_architecture_image, generate_example_video
 
 import dspy
+import config
 from redis_client import redis_client
 from pydantic import BaseModel, Field
 
@@ -162,6 +163,10 @@ def decompose_and_dispatch(query: str, session_id: str | None = None) -> List[st
     
     # DSPy logic
     api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        config.load_google_secrets()
+        api_key = os.getenv("GOOGLE_API_KEY")
+
     dspy_enabled = False
     if api_key:
         try:
