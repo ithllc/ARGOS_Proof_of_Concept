@@ -2,17 +2,150 @@ import json
 import os
 import uuid
 import logging
-from typing import List
+from typing import List, Optional, Dict, Any
+from enum import Enum
 
 from google.adk.agents import LlmAgent
-from google.adk.tools import FunctionTool
+from google.adk.tools import FunctionTool, ToolContext
+from google.adk.agents.callback_context import CallbackContext
+from google.adk.models import LlmResponse, LlmRequest
+from google.genai import types
 
 from multi_modal_tools import generate_architecture_image, generate_example_video
 
 import dspy
 from redis_client import redis_client
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
+
+# --- Shared State Models ---
+
+class TaskStatus(str, Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+class ResearchTask(BaseModel):
+    id: str = Field(..., description="Unique ID of the task")
+    description: str = Field(..., description="Description of the task")
+    status: TaskStatus = Field(TaskStatus.PENDING, description="Current status of the task")
+
+class ResearchPaper(BaseModel):
+    title: str = Field(..., description="Title of the paper")
+    url: str = Field(..., description="URL of the paper")
+    summary: Optional[str] = Field(None, description="Brief summary of the paper")
+
+class ResearchState(BaseModel):
+    query: str = Field("", description="The main research query")
+    tasks: List[ResearchTask] = Field(default_factory=list, description="List of decomposed research tasks")
+    papers: List[ResearchPaper] = Field(default_factory=list, description="List of found research papers")
+    analysis: str = Field("", description="Current analysis or synthesis of findings")
+    status: str = Field("idle", description="Overall agent status (idle, researching, analyzing)")
+
+# --- Tool for Updating State ---
+
+def update_research_state(
+    tool_context: ToolContext,
+    query: Optional[str] = None,
+    tasks: Optional[List[Dict[str, Any]]] = None,
+    papers: Optional[List[Dict[str, Any]]] = None,
+    analysis: Optional[str] = None,
+    status: Optional[str] = None
+) -> Dict[str, str]:
+    """
+    Update the shared research state. Use this tool to reflect progress in the UI.
+    
+    Args:
+        query: Update the main research query.
+        tasks: Update the list of tasks. Provide the full list or new tasks.
+        papers: Update the list of papers.
+        analysis: Update the textual analysis.
+        status: Update the overall status (e.g., 'researching', 'completed').
+    """
+    try:
+        current_state = tool_context.state.get("research_state", {})
+        
+        if query is not None:
+            current_state["query"] = query
+        if tasks is not None:
+            current_state["tasks"] = tasks
+        if papers is not None:
+            current_state["papers"] = papers
+        if analysis is not None:
+            current_state["analysis"] = analysis
+        if status is not None:
+            current_state["status"] = status
+
+        tool_context.state["research_state"] = current_state
+        return {"status": "success", "message": "Research state updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating state: {e}")
+        return {"status": "error", "message": f"Error updating state: {str(e)}"}
+
+# --- Callbacks ---
+
+def on_before_agent(callback_context: CallbackContext):
+    """Initialize research state if it doesn't exist."""
+    if "research_state" not in callback_context.state:
+        default_state = ResearchState().model_dump()
+        callback_context.state["research_state"] = default_state
+    return None
+
+def before_model_modifier(
+    callback_context: CallbackContext, llm_request: LlmRequest
+) -> Optional[LlmResponse]:
+    """Injects the current research state into the system prompt."""
+    agent_name = callback_context.agent_name
+    if agent_name == "coordinator":
+        state_json = "No state yet"
+        if "research_state" in callback_context.state:
+            try:
+                state_json = json.dumps(callback_context.state["research_state"], indent=2)
+            except Exception as e:
+                state_json = f"Error serializing state: {str(e)}"
+        
+        # Modify System Prompt
+        original_instruction = llm_request.config.system_instruction or types.Content(role="system", parts=[])
+        prefix = f"""You are the Coordinator Agent for the ARGOS Research System.
+        You collaborate with the user on a shared research workspace.
+        
+        CURRENT SHARED STATE:
+        {state_json}
+        
+        YOUR RESPONSIBILITIES:
+        1. When the user gives a query, use `update_research_state` to update the 'query' field and decompose it into 'tasks'.
+        2. As you complete tasks (conceptually), update their status in the 'tasks' list.
+        3. If you find papers (simulated or real), add them to the 'papers' list.
+        4. Keep the 'analysis' field updated with your findings.
+        5. ALWAYS use `update_research_state` to reflect changes in the UI.
+        """
+        
+        if not isinstance(original_instruction, types.Content):
+            original_instruction = types.Content(role="system", parts=[types.Part(text=str(original_instruction))])
+        if not original_instruction.parts:
+            original_instruction.parts.append(types.Part(text=""))
+
+        # Prepend the state info
+        modified_text = prefix + "\n\n" + (original_instruction.parts[0].text or "")
+        original_instruction.parts[0].text = modified_text
+        llm_request.config.system_instruction = original_instruction
+
+    return None
+
+def simple_after_model_modifier(
+    callback_context: CallbackContext, llm_response: LlmResponse
+) -> Optional[LlmResponse]:
+    """Stop the consecutive tool calling of the agent if it has just updated state."""
+    agent_name = callback_context.agent_name
+    if agent_name == "coordinator":
+        if llm_response.content and llm_response.content.parts:
+            for part in llm_response.content.parts:
+                if part.text:
+                    callback_context._invocation_context.end_invocation = True
+                    break
+    return None
 
 class DecomposeQuery(dspy.Signature):
     """Decompose a complex research query into a series of simpler, actionable search tasks."""
