@@ -206,38 +206,38 @@ async def websocket_events_endpoint(websocket: WebSocket):
 # CopilotKit / AG-UI Integration for ADK Agents
 # ==============================================================================
 
-logger.info(f"Checking CopilotKit availability: add_fastapi_endpoint={add_fastapi_endpoint is not None}, CopilotKitRemoteEndpoint={CopilotKitRemoteEndpoint is not None}")
+# logger.info(f"Checking CopilotKit availability: add_fastapi_endpoint={add_fastapi_endpoint is not None}, CopilotKitRemoteEndpoint={CopilotKitRemoteEndpoint is not None}")
 
-# Only attempt to add CopilotKit endpoints if package is available
-if add_fastapi_endpoint and CopilotKitRemoteEndpoint:
-    try:
-        # Build a CopilotKit SDK instance exposing the ADK agents.
-        def make_agents(context):
-            # Lazy import here to avoid circular imports during import time
-            from agents.coordinator.agent import root_agent as coordinator_adk_agent
-            from agents.research.agent import root_agent as research_adk_agent
-            from agents.planning.agent import root_agent as planning_adk_agent
-            from agents.analysis.agent import root_agent as analysis_adk_agent
-
-            # CopilotKit expects its agents to be passed in a list
-            return [coordinator_adk_agent, research_adk_agent, planning_adk_agent, analysis_adk_agent]
-
-        sdk = CopilotKitRemoteEndpoint(agents=make_agents)
-        add_fastapi_endpoint(app, sdk, "/copilotkit")
-        
-        # Workaround: Manually register the root path because add_fastapi_endpoint only registers subpaths
-        if copilotkit_handler:
-            @app.api_route("/copilotkit", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-            async def handle_copilotkit_root(request: Request):
-                # Inject 'path' into path_params so the handler works
-                request.scope["path_params"]["path"] = ""
-                return await copilotkit_handler(request, sdk)
-
-        logger.info("CopilotKit endpoint registered at /copilotkit")
-    except Exception as e:
-        logger.error(f"Failed to register CopilotKit endpoints: {e}")
-else:
-    logger.warning("CopilotKit packages not available, skipping endpoint registration.")
+# # Only attempt to add CopilotKit endpoints if package is available
+# if add_fastapi_endpoint and CopilotKitRemoteEndpoint:
+#     try:
+#         # Build a CopilotKit SDK instance exposing the ADK agents.
+#         def make_agents(context):
+#             # Lazy import here to avoid circular imports during import time
+#             from agents.coordinator.agent import root_agent as coordinator_adk_agent
+#             from agents.research.agent import root_agent as research_adk_agent
+#             from agents.planning.agent import root_agent as planning_adk_agent
+#             from agents.analysis.agent import root_agent as analysis_adk_agent
+#
+#             # CopilotKit expects its agents to be passed in a list
+#             return [coordinator_adk_agent, research_adk_agent, planning_adk_agent, analysis_adk_agent]
+#
+#         sdk = CopilotKitRemoteEndpoint(agents=make_agents)
+#         add_fastapi_endpoint(app, sdk, "/copilotkit")
+#         
+#         # Workaround: Manually register the root path because add_fastapi_endpoint only registers subpaths
+#         if copilotkit_handler:
+#             @app.api_route("/copilotkit", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+#             async def handle_copilotkit_root(request: Request):
+#                 # Inject 'path' into path_params so the handler works
+#                 request.scope["path_params"]["path"] = ""
+#                 return await copilotkit_handler(request, sdk)
+#
+#         logger.info("CopilotKit endpoint registered at /copilotkit")
+#     except Exception as e:
+#         logger.error(f"Failed to register CopilotKit endpoints: {e}")
+# else:
+#     logger.warning("CopilotKit packages not available, skipping endpoint registration.")
 
 
 # AG-UI ADK integration (optional)
@@ -280,12 +280,16 @@ if ADKAgent and add_adk_fastapi_endpoint:
             use_in_memory_services=True
         )
 
+        # Map coordinator to /copilotkit to serve as the main entry point
+        add_adk_fastapi_endpoint(app, coordinator_wrapper, path="/copilotkit")
+        
+        # Also keep specific endpoints if needed
         add_adk_fastapi_endpoint(app, coordinator_wrapper, path="/copilotkit/coordinator")
         add_adk_fastapi_endpoint(app, research_wrapper, path="/copilotkit/research")
         add_adk_fastapi_endpoint(app, planning_wrapper, path="/copilotkit/planning")
         add_adk_fastapi_endpoint(app, analysis_wrapper, path="/copilotkit/analysis")
 
-        logger.info("AG-UI ADK endpoints registered under /copilotkit/*")
+        logger.info("AG-UI ADK endpoints registered under /copilotkit and subpaths")
     except Exception as e:
         logger.error(f"Failed to register AG-UI ADK endpoints: {e}")
 
