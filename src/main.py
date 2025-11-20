@@ -24,6 +24,7 @@ import json
 try:
     from copilotkit.integrations.fastapi import add_fastapi_endpoint
     from copilotkit.sdk import CopilotKitRemoteEndpoint
+    logger.info("Successfully imported CopilotKit.")
 except Exception as e:
     logger.error(f"CRITICAL: Failed to import CopilotKit: {e}")
     add_fastapi_endpoint = None
@@ -31,6 +32,7 @@ except Exception as e:
 
 try:
     from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+    logger.info("Successfully imported AG-UI ADK.")
 except Exception as e:
     logger.error(f"CRITICAL: Failed to import AG-UI ADK: {e}")
     ADKAgent = None
@@ -77,7 +79,6 @@ async def startup_event():
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins
-    allow_origin_regex=".*", # Allow all origins regex
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -203,6 +204,8 @@ async def websocket_events_endpoint(websocket: WebSocket):
 # CopilotKit / AG-UI Integration for ADK Agents
 # ==============================================================================
 
+logger.info(f"Checking CopilotKit availability: add_fastapi_endpoint={add_fastapi_endpoint is not None}, CopilotKitRemoteEndpoint={CopilotKitRemoteEndpoint is not None}")
+
 # Only attempt to add CopilotKit endpoints if package is available
 if add_fastapi_endpoint and CopilotKitRemoteEndpoint:
     try:
@@ -219,9 +222,11 @@ if add_fastapi_endpoint and CopilotKitRemoteEndpoint:
 
         sdk = CopilotKitRemoteEndpoint(agents=make_agents)
         add_fastapi_endpoint(app, sdk, "/copilotkit")
-        print("CopilotKit endpoint registered at /copilotkit")
+        logger.info("CopilotKit endpoint registered at /copilotkit")
     except Exception as e:
-        print("Failed to register CopilotKit endpoints:", e)
+        logger.error(f"Failed to register CopilotKit endpoints: {e}")
+else:
+    logger.warning("CopilotKit packages not available, skipping endpoint registration.")
 
 
 # AG-UI ADK integration (optional)
@@ -269,9 +274,9 @@ if ADKAgent and add_adk_fastapi_endpoint:
         add_adk_fastapi_endpoint(app, planning_wrapper, path="/copilotkit/planning")
         add_adk_fastapi_endpoint(app, analysis_wrapper, path="/copilotkit/analysis")
 
-        print("AG-UI ADK endpoints registered under /copilotkit/*")
+        logger.info("AG-UI ADK endpoints registered under /copilotkit/*")
     except Exception as e:
-        print("Failed to register AG-UI ADK endpoints:", e)
+        logger.error(f"Failed to register AG-UI ADK endpoints: {e}")
 
 # ==============================================================================
 # Serve Frontend Static Files
