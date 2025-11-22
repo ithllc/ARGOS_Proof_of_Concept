@@ -170,7 +170,7 @@ def decompose_and_dispatch(query: str, session_id: str | None = None) -> List[st
     dspy_enabled = False
     if api_key:
         try:
-            llm = dspy.LM("gemini/gemini-1.5-flash-latest", api_key=api_key)
+            llm = dspy.LM("gemini/gemini-2.0-flash-exp", api_key=api_key)
             dspy.settings.configure(lm=llm)
             dspy_enabled = True
         except Exception as e:
@@ -252,7 +252,7 @@ async def process_voice_input(query: str, session_id: str, response_channel: str
 
 root_agent = LlmAgent(
     name="coordinator",
-    model="gemini-2.5-pro",
+    model="gemini-2.0-flash-exp",
     instruction="You are the coordinator agent. Your job is to decompose a user's query into a series of search tasks, or generate multi-modal content if requested.",
     tools=[
         # Decomposes a complex research query into a series of simpler, actionable search tasks.

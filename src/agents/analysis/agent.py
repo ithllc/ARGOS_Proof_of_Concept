@@ -31,7 +31,7 @@ def assess_feasibility(synthesis_keys: List[str]) -> dict:
 
 root_agent = LlmAgent(
     name="analysis",
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash-exp",
     instruction="You are an analysis agent. You can assess the feasibility of a synthesis.",
     tools=[
         # Assesses the feasibility of a synthesis.

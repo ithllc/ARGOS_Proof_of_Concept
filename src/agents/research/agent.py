@@ -47,7 +47,7 @@ def search_and_parse(query: str) -> List[str]:
 
 root_agent = LlmAgent(
     name="research",
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash-exp",
     instruction="You are a research agent. You can search for papers and parse them.",
     tools=[
         # Searches for a query and parses the results.
